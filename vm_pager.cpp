@@ -7,11 +7,7 @@
 using namespace std;
 
 typedef pair<page_table_entry_t*, extra_info*> pte_deluxe; // a pte entry with extra info
-typedef pair<string, unsigned int> valid_page_id;
-
-// How many buffers should we have
-// Should clock queue consist of physical pages or virtual pages?
-// A newly mapped page is resident or not? 
+typedef pair<string, unsigned int> valid_page_id; // valid physical page unique idenditifier
 
 /* ------------- Variables and Structs -------------------  */
 // extra info for page table entry
@@ -29,9 +25,8 @@ struct process_info
     //void *arena_curr_addr;
     
 };
-
-unordered_map<valid_page_id, vector<pte_deluxe> > inversion;
-// vector< vector < pte_deluxe > > physical_inversion;
+unordered_map<unsigned int, valid_page_id> resident_pages; // ppn -> valid_page_id
+unordered_map<valid_page_id, vector<pte_deluxe> > inversion; // valid_page_id -> pte_deluxe
 unsigned int num_memory_pages;
 unsigned int num_swap_blocks;
 pid_t curr_pid;
@@ -80,19 +75,24 @@ int vm_fault(const void* addr, bool write_flag)
         return -1;
     
     // 
+    if (!write_flag) return read_handler(index);
+    return write_handler(index);
 }
 
 void *vm_map(const char *filename, unsigned int block)
 {
     // Make one virtual page valid
-
+    
 }
 
 
 
 
 int read_handler(uintptr_t index){
-
+    // page_table_entry_t* entry = &(arenas[curr_pid]->process_page_table->ptes[index]);
+    // extra_info * extra = &(arenas[curr_pid]->pt_extension[index]);
+    // pte_deluxe this_page = make_pair(entry, extra);
+    
 }
 
 
