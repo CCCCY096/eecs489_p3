@@ -7,7 +7,7 @@
 using namespace std;
 
 typedef pair<page_table_entry_t*, extra_info*> pte_deluxe; // a pte entry with extra info
-
+typedef pair<string, unsigned int> valid_page_id;
 
 // How many buffers should we have
 // Should clock queue consist of physical pages or virtual pages?
@@ -30,8 +30,9 @@ struct process_info
     //void *arena_curr_addr;
     
 };
-// unordered_map<unsigned int, vector<pte_deluxe> > shared_pages;
-vector< vector < pte_deluxe > > physical_inversion;
+
+unordered_map<valid_page_id, vector<pte_deluxe> > inversion;
+// vector< vector < pte_deluxe > > physical_inversion;
 unsigned int num_memory_pages;
 unsigned int num_swap_blocks;
 pid_t curr_pid;
@@ -54,24 +55,25 @@ void vm_init(unsigned int memory_pages, unsigned int swap_blocks)
 
 int vm_create(pid_t parent_pid, pid_t child_pid)
 {
-    // Eager swap reservation check
-    // Leave it for now   
+//     // Eager swap reservation check
+//     // Leave it for now   
 
-    // Refactor? Too much duplicate codes
-    page_table_t *child_ptbr = new page_table_t;
-    info *child_info = new info;
-    // child_info->arena_curr_addr = VM_ARENA_BASEADDR;
-    child_info->process_page_table = new page_table_t;
-    arenas[child_pid] = child_info;
-    // If parent is not mangaged by pager
-    if (arenas.find(parent_pid) == arenas.end())
-    {
-        // Then also add both parent to our management
-        info *parent_info = new info;
-        parent_info->arena_curr_addr = VM_ARENA_BASEADDR;
-        parent_info->ptbr = new page_table_t;
-        arenas[parent_pid] = parent_info;
-    }
+//     // Refactor? Too much duplicate codes
+//     page_table_t *child_ptbr = new page_table_t;
+//     info *child_info = new info;
+//     // child_info->arena_curr_addr = VM_ARENA_BASEADDR;
+//     child_info->process_page_table = new page_table_t;
+//     arenas[child_pid] = child_info;
+//     // If parent is not mangaged by pager
+//     if (arenas.find(parent_pid) == arenas.end())
+//     {
+//         // Then also add both parent to our management
+//         info *parent_info = new info;
+//         parent_info->arena_curr_addr = VM_ARENA_BASEADDR;
+//         parent_info->ptbr = new page_table_t;
+//         arenas[parent_pid] = parent_info;
+//     }
+    return 1;
 }
 
 void vm_switch(pid_t pid)
