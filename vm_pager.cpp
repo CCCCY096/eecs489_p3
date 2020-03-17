@@ -20,7 +20,6 @@ struct extra_info{
     bool resident;
     bool referenced;
     bool dirty;
-    unsigned counter;
 };
 // info for each process
 struct process_info
@@ -47,10 +46,10 @@ void vm_init(unsigned int memory_pages, unsigned int swap_blocks)
     num_memory_pages = memory_pages;
     num_swap_blocks = swap_blocks;
     // Create and pin the "zero page"
-    // for (unsigned int i = 0; i < VM_PAGESIZE; ++i)
-    // {
-    //     ((char *)vm_physmem)[i] = 0;
-    // }
+    for (unsigned int i = 0; i < VM_PAGESIZE; ++i)
+    {
+        ((char *)vm_physmem)[i] = 0;
+    }
 }
 
 int vm_create(pid_t parent_pid, pid_t child_pid)
@@ -58,34 +57,29 @@ int vm_create(pid_t parent_pid, pid_t child_pid)
 //     // Eager swap reservation check
 //     // Leave it for now   
 
-//     // Refactor? Too much duplicate codes
-//     page_table_t *child_ptbr = new page_table_t;
-//     info *child_info = new info;
-//     // child_info->arena_curr_addr = VM_ARENA_BASEADDR;
-//     child_info->process_page_table = new page_table_t;
-//     arenas[child_pid] = child_info;
-//     // If parent is not mangaged by pager
-//     if (arenas.find(parent_pid) == arenas.end())
-//     {
-//         // Then also add both parent to our management
-//         info *parent_info = new info;
-//         parent_info->arena_curr_addr = VM_ARENA_BASEADDR;
-//         parent_info->ptbr = new page_table_t;
-//         arenas[parent_pid] = parent_info;
-//     }
-    return 1;
+        
+    // 4 credits version: assume child process has a empty arena
+    process_info *child_info = new process_info;
+    child_info->process_page_table = new page_table_t;
+    child_info->pt_extension.resize(VM_ARENA_SIZE/VM_PAGESIZE);
+    arenas[child_pid] = child_info;
+    return 0;
 }
 
 void vm_switch(pid_t pid)
 {
     curr_pid = pid;
-    page_table_base_register = arenas[pid]->ptbr;
+    page_table_base_register = arenas[pid]->process_page_table;
 }
 
 int vm_fault(const void* addr, bool write_flag)
 {
-    // Acess the PTE
-
+    uintptr_t index = ((uintptr_t) addr - (uintptr_t) VM_ARENA_BASEADDR) / VM_PAGESIZE;
+    // invalid page
+    if ( !arenas[curr_pid]->pt_extension[index].valid )
+        return -1;
+    
+    // 
 }
 
 void *vm_map(const char *filename, unsigned int block)
@@ -94,3 +88,14 @@ void *vm_map(const char *filename, unsigned int block)
 
 }
 
+
+
+
+int read_handler(uintptr_t index){
+
+}
+
+
+int write_handler(uintptr_t index){
+
+}
