@@ -138,9 +138,9 @@ int write_handler(uintptr_t index)
     {
         //copy on write
         //read into buffer
+        memccpy(buffer, vm_physmem + entry->ppage * VM_PAGESIZE);
+        evict_handler(nullptr, 0, buffer);
         // Since this physical page is shared, first step is to create a new physical page
-        entry->ppage = sb_table.front();
-        
     }
 }
 
