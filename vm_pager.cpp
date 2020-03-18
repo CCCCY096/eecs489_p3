@@ -116,14 +116,15 @@ int read_handler(uintptr_t index)
     else
     {
         // Check if there is free physical page
-        evict_handler(extra->filename.c_str(), extra->block);
+        unsigned int new_ppn = bringto_mem_handler(extra->filename.c_str(), extra->block);
         // Modify virtual pages pointing to this new resident page
         for (auto page&: inversion[extra->filename][extra->block])
         {
+            page.first->ppage = new_ppn;
             page.first->read_enable = 1;
             page.second->resident = 1;
             page.second->referenced = 1;
-        }
+        }        
         // Done
     }
     return 0;
@@ -136,15 +137,44 @@ int write_handler(uintptr_t index)
     extra_info *extra = &(arenas[curr_pid]->pt_extension[index]);
     if (inversion[extra->filename][extra->block].size() > 1)
     {
+        unsigned int old_block = extra->block;
         //copy on write
         //read into buffer
+        read_handler( index );
         memccpy(buffer, vm_physmem + entry->ppage * VM_PAGESIZE);
-        evict_handler(nullptr, 0, buffer);
-        // Since this physical page is shared, first step is to create a new physical page
+        //copy to physmem, and evict if needed 
+        unsigned new_ppn = bringto_mem_handler(extra->filename, extra->block, buffer);
+        //change state
+        //the virtual page get changed (leaf)
+        // Assign available swap block to the leaf page
+        extra->block = sb_table.front();
+        sb_table.pop();        
+        entry->ppage = new_ppn;
+        inversion[extra->filename][extra->block].push_back(make_pair<page_table_entry_t *, extra_info *>(entry, extra));
+        //Handle trunck
+        // Refactor???
+        for (unsigned int i = 0; i < inversion[extra->filename][old_block].size(); ++i)
+        {
+            if (inversion[extra->filename][old_block][i].first->ppage == new_ppn)
+                inversion[extra->filename][old_block].erase(inversion[extra->filename][old_block].begin() + i); 
+        }
+        if (inversion[extra->filename][old_block].size() == 1)
+        {
+            pte_deluxe tmp = inversion[extra->filename][old_block][0];
+            if (tmp.second->dirty == 1) tmp.first->write_enable = 1;
+        }
     }
+
+    
+
+    extra->valid = 1;
+    extra->referenced = 1;
+    extra->dirty = 1;
+    entry->read_enable = 1;
+    entry->write_enable = 1;
 }
 
-void evict_handler(const char* filename, unsigned int block, const char *buffer)
+unsigned int bringto_mem_handler(const char* filename, unsigned int block, const char *buffer)
 {
     unsigned int avai_ppn = resident_pages.size();
     if (resident_pages.size() == num_memory_pages) {
@@ -190,4 +220,5 @@ void evict_handler(const char* filename, unsigned int block, const char *buffer)
     // Update the clock queue
     clock_queue.push(avai_ppn);
     // The modification of virtual pages pointing to this new resident page should be handled else where 
+    return avai_ppn;
 }
