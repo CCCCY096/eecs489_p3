@@ -9,6 +9,9 @@
 #include <string.h>
 using namespace std;
 
+
+// Refactor: inversion.erase
+
 struct extra_info;
 typedef pair<page_table_entry_t *, extra_info *> pte_deluxe; // a pte entry with extra info
 typedef pair<string, unsigned int> valid_page_id;            // valid physical page unique idenditifier
@@ -129,6 +132,8 @@ void *vm_map(const char *filename, unsigned int block)
     // Make one virtual page valid
     if (filename)
     {
+        // Find the filename
+        
     }
     else
     {
@@ -239,6 +244,7 @@ int read_handler(uintptr_t index)
             page.second->resident = 1;
             page.second->referenced = 1;
         }
+
         // Done
     }
     return 0;
@@ -249,12 +255,13 @@ int write_handler(uintptr_t index)
 {
     page_table_entry_t *entry = &(arenas[curr_pid]->process_page_table->ptes[index]);
     extra_info *extra = &(arenas[curr_pid]->pt_extension[index]);
-    if (inversion[extra->filename][extra->block].size() > 1 || entry->ppage == 0)
+    read_handler(index);
+    if ( extra->filename == "" && (inversion[extra->filename][extra->block].size() > 1 || entry->ppage == 0))
     {
         unsigned int old_block = extra->block;
         // copy on write
         // read into buffer
-        read_handler(index);
+        // read_handler(index);
         memcpy(buffer, (char *)vm_physmem + entry->ppage * VM_PAGESIZE, VM_PAGESIZE);
         // copy to physmem, and evict if needed
         unsigned new_ppn = bringto_mem_handler(extra->filename.c_str(), extra->block, buffer);
@@ -280,15 +287,19 @@ int write_handler(uintptr_t index)
         }
     }
     // If the page is not resident and is not shared
-    else if (!extra->resident)
+    // else if (!extra->resident)
+    // {
+    //     read_handler(index);
+    // }
+    for (auto& page: inversion[extra->filename][extra->block])
     {
-        read_handler(index);
+        page.second->valid = 1;
+        page.second->referenced = 1;
+        page.second->dirty = 1;
+        page.first->read_enable = 1;
+        page.first->write_enable = 1;
     }
-    extra->valid = 1;
-    extra->referenced = 1;
-    extra->dirty = 1;
-    entry->read_enable = 1;
-    entry->write_enable = 1;
+
     return 0;
 }
 
@@ -346,6 +357,21 @@ void vm_destroy()
         else
         {
             // TODO
+            // resident?
+            // Refactor
+            if (extra->resident && inversion[extra->filename][extra->block].size() == 1)
+            {
+                // Write back
+                if (extra->dirty)
+                    file_write(extra->filename.c_str(), extra->block, (char*)vm_physmem + entry->ppage * VM_PAGESIZE);
+                // Delete the corresponding entry from resident_pages
+                resident_pages.erase(entry->ppage);
+            }
+            for (unsigned int i = 0; i < inversion[extra->filename][extra->block].size(); ++i)
+            {
+                if (inversion[extra->filename][extra->block][i].second->pid == curr_pid)
+                    inversion[extra->filename][extra->block].erase(inversion[extra->filename][extra->block].begin() + i);
+            }
         }
     }
     delete table;
