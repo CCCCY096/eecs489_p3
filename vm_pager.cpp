@@ -133,7 +133,41 @@ void *vm_map(const char *filename, unsigned int block)
     if (filename)
     {
         // Find the filename
-        
+        string pg_filename = "";
+        unsigned curr_page_num = (unsigned) filename / VM_PAGESIZE;
+        page_table_entry_t *entry = &(arenas[curr_pid]->process_page_table->ptes[curr_page_num]);
+        extra_info *extra = &(arenas[curr_pid]->pt_extension[curr_page_num]);
+        bool file_pg_valid = vm_fault(filename, false);
+        if( !file_pg_valid )
+            return nullptr;
+        char tmp_char = ((char*)vm_physmem)[(entry->ppage)<<12 + (unsigned) filename % VM_PAGESIZE];
+        pg_filename += tmp_char;
+        filename++;
+        while(tmp_char)
+        {
+            if ((unsigned) filename / VM_PAGESIZE != curr_page_num)
+            {
+                curr_page_num = (unsigned) filename / VM_PAGESIZE;
+                entry = &(arenas[curr_pid]->process_page_table->ptes[curr_page_num]);
+                extra = &(arenas[curr_pid]->pt_extension[curr_page_num]);
+                file_pg_valid = vm_fault(filename, false);
+                if( !file_pg_valid )
+                    return nullptr;
+            }
+            tmp_char = ((char*)vm_physmem)[(entry->ppage)<<12 + (unsigned) filename % VM_PAGESIZE];
+            pg_filename += tmp_char;
+            filename++;
+        }
+        table->ptes[index].ppage = 0;
+        table->ptes[index].write_enable = 0;
+        table->ptes[index].read_enable = 0;
+        (*extension_table)[index].valid = 1;
+        (*extension_table)[index].resident = 0;
+        (*extension_table)[index].referenced = 0;
+        (*extension_table)[index].dirty = 0; //dirty bit?
+        (*extension_table)[index].filename = pg_filename;
+        (*extension_table)[index].pid = curr_pid;
+        inversion[pg_filename][block].push_back(make_pair(&(table->ptes[index]), &(*extension_table)[index]));
     }
     else
     {
@@ -150,10 +184,10 @@ void *vm_map(const char *filename, unsigned int block)
         (*extension_table)[index].pid = curr_pid;
         avail_swap_blocks--;
         arenas[curr_pid]->sb_used++;
-        arenas[curr_pid]->avail_vp++;
-        return (void *)(VM_ARENA_BASEADDR + index * VM_PAGESIZE);
     }
-    return nullptr;
+    arenas[curr_pid]->avail_vp++;
+    return (void *)(VM_ARENA_BASEADDR + index * VM_PAGESIZE);
+    // return nullptr;
 }
 
 unsigned int bringto_mem_handler(const char *filename, unsigned int block, const char *buffer)
