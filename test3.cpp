@@ -6,10 +6,10 @@
 using namespace std;
 
 int main(){
-    char* filename1 = (char*) vm_map(nullptr, 0);
-    cout << *filename1 << endl;
-    strcpy(filename1, "shakespeare.txt");
-    cout << *filename1 << endl;
+    char* filename = (char*) vm_map(nullptr, 0);
+    cout << *filename << endl;
+    strcpy(filename, "shakespeare.txt");
+    cout << *filename << endl;
     char *p1 = (char *) vm_map (filename, 0);
     char *p2 = (char *) vm_map (filename, 1);
     char *p3 = (char *) vm_map (filename, 2);
@@ -18,8 +18,8 @@ int main(){
     cout << *p1 << *p2 << *p3 << *p4 << *p5 << endl;
     *p2 = 'h';
     *p5 = 'a';
-    char *p2 = (char *) vm_map (filename, 0);
-    char *p3 = (char *) vm_map (filename, 0);
+    p2 = (char *) vm_map (filename, 0);
+    p3 = (char *) vm_map (filename, 0);
     int pid = fork();
     if (!pid){
         *p2 = 's';
