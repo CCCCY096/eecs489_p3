@@ -7,6 +7,7 @@
 #include <string>
 #include <stdio.h>
 #include <string.h>
+#include <iostream>
 using namespace std;
 
 
@@ -150,7 +151,8 @@ void *vm_map(const char *filename, unsigned int block)
         unsigned curr_page_num = ( (size_t) filename - (size_t) VM_ARENA_BASEADDR) / VM_PAGESIZE;
         page_table_entry_t *entry = &(arenas[curr_pid]->process_page_table->ptes[curr_page_num]);
         extra_info *extra = &(arenas[curr_pid]->pt_extension[curr_page_num]);
-        bool file_pg_valid = vm_fault(filename, false);
+        // cout << "fault in file map" << endl;
+        bool file_pg_valid = vm_fault(filename, false) + 1;
         if( !file_pg_valid )
             return nullptr;
         char tmp_char = ((char*)vm_physmem)[(entry->ppage<<12) + (size_t) filename % VM_PAGESIZE];
@@ -262,7 +264,7 @@ unsigned int bringto_mem_handler(const char *filename, unsigned int block, const
         }
     }
     // Copy content to this physical page
-    if (buffer)
+    if (!buffer)
         file_read(filename, block, (char *)vm_physmem + avai_ppn * VM_PAGESIZE);
     else
         memcpy((char *)vm_physmem + avai_ppn * VM_PAGESIZE, buffer, VM_PAGESIZE);
@@ -373,6 +375,7 @@ int vm_fault(const void *addr, bool write_flag)
         return -1;
 
     //
+    // cout << write_flag << endl;
     if (!write_flag)
         return read_handler(index);
     return write_handler(index);

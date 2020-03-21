@@ -6,6 +6,7 @@
         "deque": "cpp",
         "list": "cpp",
         "xstring": "cpp",
-        "queue": "cpp"
+        "queue": "cpp",
+        "iostream": "cpp"
     }
 }
