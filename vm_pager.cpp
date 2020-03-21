@@ -112,7 +112,20 @@ int vm_create(pid_t parent_pid, pid_t child_pid)
             inversion[""][parent_extra->block].push_back(make_pair(&(child_table->ptes[i]), &(*child_extension_table)[i]));
 
         }
-
+        else
+        {
+            child_table->ptes[i].ppage = parent_entry->ppage;
+            child_table->ptes[i].read_enable = parent_entry->read_enable;
+            child_table->ptes[i].write_enable = parent_entry->write_enable;
+            (*child_extension_table)[i].valid = parent_extra->valid;
+            (*child_extension_table)[i].resident = parent_extra->resident;
+            (*child_extension_table)[i].referenced = parent_extra->referenced;
+            (*child_extension_table)[i].dirty = parent_extra->dirty;
+            (*child_extension_table)[i].filename = parent_extra->filename;
+            (*child_extension_table)[i].block = parent_extra->block;
+            (*child_extension_table)[i].pid = child_pid;
+            inversion[parent_extra->filename][parent_extra->block].push_back(make_pair(&(child_table->ptes[i]), &(*child_extension_table)[i]));
+        }
     }
     return 0;
 }
@@ -134,39 +147,54 @@ void *vm_map(const char *filename, unsigned int block)
     {
         // Find the filename
         string pg_filename = "";
-        unsigned curr_page_num = (unsigned) filename / VM_PAGESIZE;
+        unsigned curr_page_num = ( (size_t) filename - (size_t) VM_ARENA_BASEADDR) / VM_PAGESIZE;
         page_table_entry_t *entry = &(arenas[curr_pid]->process_page_table->ptes[curr_page_num]);
         extra_info *extra = &(arenas[curr_pid]->pt_extension[curr_page_num]);
         bool file_pg_valid = vm_fault(filename, false);
         if( !file_pg_valid )
             return nullptr;
-        char tmp_char = ((char*)vm_physmem)[(entry->ppage)<<12 + (unsigned) filename % VM_PAGESIZE];
+        char tmp_char = ((char*)vm_physmem)[(entry->ppage<<12) + (size_t) filename % VM_PAGESIZE];
         pg_filename += tmp_char;
         filename++;
         while(tmp_char)
         {
-            if ((unsigned) filename / VM_PAGESIZE != curr_page_num)
+            if (((size_t) filename - (size_t) VM_ARENA_BASEADDR) / VM_PAGESIZE != curr_page_num)
             {
-                curr_page_num = (unsigned) filename / VM_PAGESIZE;
+                curr_page_num = ( (size_t) filename - (size_t) VM_ARENA_BASEADDR) / VM_PAGESIZE;
                 entry = &(arenas[curr_pid]->process_page_table->ptes[curr_page_num]);
                 extra = &(arenas[curr_pid]->pt_extension[curr_page_num]);
                 file_pg_valid = vm_fault(filename, false);
                 if( !file_pg_valid )
                     return nullptr;
             }
-            tmp_char = ((char*)vm_physmem)[(entry->ppage)<<12 + (unsigned) filename % VM_PAGESIZE];
+            tmp_char = ((char*)vm_physmem)[((entry->ppage)<<12) + (size_t) filename % VM_PAGESIZE];
             pg_filename += tmp_char;
             filename++;
         }
-        table->ptes[index].ppage = 0;
-        table->ptes[index].write_enable = 0;
-        table->ptes[index].read_enable = 0;
-        (*extension_table)[index].valid = 1;
-        (*extension_table)[index].resident = 0;
-        (*extension_table)[index].referenced = 0;
-        (*extension_table)[index].dirty = 0; //dirty bit?
-        (*extension_table)[index].filename = pg_filename;
-        (*extension_table)[index].pid = curr_pid;
+        if (inversion.find(pg_filename) != inversion.end() && inversion[pg_filename].find(block) != inversion[pg_filename].end()
+            && inversion[pg_filename][block].size() > 0)
+        {
+            table->ptes[index].ppage = inversion[pg_filename][block][0].first->ppage;
+            table->ptes[index].write_enable = inversion[pg_filename][block][0].first->write_enable;
+            table->ptes[index].read_enable = inversion[pg_filename][block][0].first->read_enable;
+            (*extension_table)[index].valid = inversion[pg_filename][block][0].second->valid;
+            (*extension_table)[index].resident = inversion[pg_filename][block][0].second->resident;
+            (*extension_table)[index].referenced = inversion[pg_filename][block][0].second->referenced;
+            (*extension_table)[index].dirty = inversion[pg_filename][block][0].second->dirty; //dirty bit?
+            (*extension_table)[index].filename = pg_filename;
+            (*extension_table)[index].pid = curr_pid;   
+        }
+        else{
+            table->ptes[index].ppage = 0;
+            table->ptes[index].write_enable = 0;
+            table->ptes[index].read_enable = 0;
+            (*extension_table)[index].valid = 1;
+            (*extension_table)[index].resident = 0;
+            (*extension_table)[index].referenced = 0;
+            (*extension_table)[index].dirty = 0; //dirty bit?
+            (*extension_table)[index].filename = pg_filename;
+            (*extension_table)[index].pid = curr_pid;
+        }
         inversion[pg_filename][block].push_back(make_pair(&(table->ptes[index]), &(*extension_table)[index]));
     }
     else
@@ -186,7 +214,7 @@ void *vm_map(const char *filename, unsigned int block)
         arenas[curr_pid]->sb_used++;
     }
     arenas[curr_pid]->avail_vp++;
-    return (void *)(VM_ARENA_BASEADDR + index * VM_PAGESIZE);
+    return (void *)((char*)VM_ARENA_BASEADDR + index * VM_PAGESIZE);
     // return nullptr;
 }
 
