@@ -222,21 +222,30 @@ void *vm_map(const char *filename, unsigned int block)
 
 unsigned int bringto_mem_handler(const char *filename, unsigned int block, const char *buffer)
 {
-    unsigned int avai_ppn = resident_pages.size();
+    unsigned int avai_ppn = resident_pages.size() + 1;
+    //cout << avai_ppn << "||||" << resident_pages.size() << endl;
     if (resident_pages.size() == num_memory_pages - 1)
     {
+        cout << "Start eviction" << endl;
         valid_page_id id;
         // Find the victim
         while (true)
         {
+            //cout << "In the loop" << endl;
             if (resident_pages.find(clock_queue.front()) == resident_pages.end())
             {
+                cout << "Deleted useless ppn from clock queue" << endl;
                 clock_queue.pop();
                 continue;
             }
             id = resident_pages[clock_queue.front()];
+            cout << "Current candidate: ppn - " << clock_queue.front() << "block - " << id.second << endl;
+            cout << "candidate vp referenced: " << inversion[id.first][id.second][0].second->referenced << endl; 
             if (!inversion[id.first][id.second][0].second->referenced)
+            {
+                cout << "Found the vicitim: " << clock_queue.front() << endl;
                 break;
+            }
             for (auto &page : inversion[id.first][id.second])
             {
                 page.second->referenced = 0;
@@ -249,9 +258,15 @@ unsigned int bringto_mem_handler(const char *filename, unsigned int block, const
         auto &page = inversion[id.first][id.second][0];
         if (page.second->dirty)
         {
-            file_write(page.second->filename.c_str(), page.second->block, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
+            cout << "Started write back" << endl;
+            if (page.second->filename == "")
+                file_write(nullptr, page.second->block, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
+            else
+                file_write(page.second->filename.c_str(), page.second->block, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
         }
+        cout << "Check ppn: " << avai_ppn << endl;
         avai_ppn = clock_queue.front();
+        cout << avai_ppn << endl;
         // Update the clock queue
         clock_queue.pop();
         for (auto &page : inversion[id.first][id.second]) // Modify the info of the evicted page
@@ -271,6 +286,7 @@ unsigned int bringto_mem_handler(const char *filename, unsigned int block, const
     // Update resident pages
     resident_pages[avai_ppn] = make_pair(string(filename), block);
     // Update the clock queue
+    cout << "newly pushed ppn: " << avai_ppn << endl;
     clock_queue.push(avai_ppn);
     // The modification of virtual pages pointing to this new resident page should be handled else where
     return avai_ppn;
@@ -317,37 +333,44 @@ int read_handler(uintptr_t index)
 //parent or child?
 int write_handler(uintptr_t index)
 {
+    cout << "Start write handler" << endl;
     page_table_entry_t *entry = &(arenas[curr_pid]->process_page_table->ptes[index]);
     extra_info *extra = &(arenas[curr_pid]->pt_extension[index]);
     read_handler(index);
     if ( extra->filename == "" && (inversion[extra->filename][extra->block].size() > 1 || entry->ppage == 0))
     {
+        cout << "Start copy on write" << endl;
         unsigned int old_block = extra->block;
+        unsigned old_ppn = entry->ppage;
         // copy on write
         // read into buffer
         // read_handler(index);
         memcpy(buffer, (char *)vm_physmem + entry->ppage * VM_PAGESIZE, VM_PAGESIZE);
+        // Assign available swap block to the leaf page
+        extra->block = sb_table.front();
+        cout << "Assign block: " << sb_table.front() << endl;
+        sb_table.pop();
         // copy to physmem, and evict if needed
         unsigned new_ppn = bringto_mem_handler(extra->filename.c_str(), extra->block, buffer);
         //change state
         //the virtual page get changed (leaf)
-        // Assign available swap block to the leaf page
-        extra->block = sb_table.front();
-        sb_table.pop();
         entry->ppage = new_ppn;
         inversion[extra->filename][extra->block].push_back(make_pair(entry, extra));
         //Handle trunck
         // Refactor???
-        for (unsigned int i = 0; i < inversion[extra->filename][old_block].size(); ++i)
+        if (old_ppn != 0)
         {
-            if (inversion[extra->filename][old_block][i].first->ppage == new_ppn)
-                inversion[extra->filename][old_block].erase(inversion[extra->filename][old_block].begin() + i);
-        }
-        if (inversion[extra->filename][old_block].size() == 1)
-        {
-            pte_deluxe tmp = inversion[extra->filename][old_block][0];
-            if (tmp.second->dirty == 1)
-                tmp.first->write_enable = 1;
+            for (unsigned int i = 0; i < inversion[extra->filename][old_block].size(); ++i)
+            {
+                if (inversion[extra->filename][old_block][i].first->ppage == new_ppn)
+                    inversion[extra->filename][old_block].erase(inversion[extra->filename][old_block].begin() + i);
+            }
+            if (inversion[extra->filename][old_block].size() == 1)
+            {
+                pte_deluxe tmp = inversion[extra->filename][old_block][0];
+                if (tmp.second->dirty == 1)
+                    tmp.first->write_enable = 1;
+            }
         }
     }
     // If the page is not resident and is not shared
@@ -355,6 +378,7 @@ int write_handler(uintptr_t index)
     // {
     //     read_handler(index);
     // }
+    //cout << "Start" << endl;
     for (auto& page: inversion[extra->filename][extra->block])
     {
         page.second->valid = 1;
