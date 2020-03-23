@@ -26,9 +26,6 @@ int main(){
     if ( !pid ){
        strcpy(filename2, "dead_pikachu");
        strcpy(filename3, "dead_charizard"); 
-       unsigned i = 0;
-       while( i < 8000 )
-        i++;
     }else{
        strcpy(filename2, "rachu");
        strcpy(filename3, "mega charizard");

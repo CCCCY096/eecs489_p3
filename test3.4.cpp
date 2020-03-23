@@ -15,7 +15,10 @@ int main(){
     char *p3 = (char *) vm_map (filename, 2);
     char *p4 = (char *) vm_map (filename, 3);
     char *p5 = (char *) vm_map (filename, 4);
-    cout << *p1 << *p2 << *p3 << *p4 << *p5 << endl;
+    cout << "mapped 6 pages" << endl;
+    cout << *p2 << endl; 
+    cout << *p1 << endl; 
+    cout << *p3 << endl; 
     *p2 = 'h';
     *p5 = 'a';
     p2 = (char *) vm_map (filename, 0);
@@ -33,4 +36,5 @@ int main(){
         cout << *p5 << endl;
     }
     return 0;
+    // return 0;
 }

@@ -89,12 +89,13 @@ int vm_create(pid_t parent_pid, pid_t child_pid)
     page_table_t *child_table = arenas[child_pid]->process_page_table;
     vector<extra_info> *child_extension_table = &(arenas[child_pid]->pt_extension);
 
-    for (unsigned int i = 0; i < VM_ARENA_SIZE / VM_PAGESIZE; i++)
+    for (unsigned int i = 0; i < arenas[parent_pid]->avail_vp; i++)
     {
         page_table_entry_t *parent_entry = &(parent_table->ptes[i]);
         extra_info *parent_extra = &((*parent_extension_table)[i]);
         if (parent_extra->filename == "")
         {
+            // cout << "copied virtual: " << i << " with physical: " << parent_entry->ppage << endl;
             // Make the parent page's write_enable 0
             parent_entry->write_enable = 0;
 
@@ -110,7 +111,8 @@ int vm_create(pid_t parent_pid, pid_t child_pid)
             (*child_extension_table)[i].pid = child_pid;
             avail_swap_blocks--;
             arenas[child_pid]->sb_used++;
-            inversion[""][parent_extra->block].push_back(make_pair(&(child_table->ptes[i]), &(*child_extension_table)[i]));
+            if( parent_entry->ppage )
+                inversion[""][parent_extra->block].push_back(make_pair(&(child_table->ptes[i]), &(*child_extension_table)[i]));
 
         }
         else
@@ -128,6 +130,7 @@ int vm_create(pid_t parent_pid, pid_t child_pid)
             inversion[parent_extra->filename][parent_extra->block].push_back(make_pair(&(child_table->ptes[i]), &(*child_extension_table)[i]));
         }
     }
+    // cout << "child with num of " << arenas[child_pid]->avail_vp << " pages" << endl;
     return 0;
 }
 
@@ -135,6 +138,7 @@ void vm_switch(pid_t pid)
 {
     curr_pid = pid;
     page_table_base_register = arenas[pid]->process_page_table;
+    // cout << "Size of next arenas" << arenas[pid]->avail_vp << endl;
 }
 
 void *vm_map(const char *filename, unsigned int block)
@@ -184,6 +188,7 @@ void *vm_map(const char *filename, unsigned int block)
             (*extension_table)[index].referenced = inversion[pg_filename][block][0].second->referenced;
             (*extension_table)[index].dirty = inversion[pg_filename][block][0].second->dirty; //dirty bit?
             (*extension_table)[index].filename = pg_filename;
+            (*extension_table)[index].block = block;   
             (*extension_table)[index].pid = curr_pid;   
         }
         else{
@@ -195,8 +200,10 @@ void *vm_map(const char *filename, unsigned int block)
             (*extension_table)[index].referenced = 0;
             (*extension_table)[index].dirty = 0; //dirty bit?
             (*extension_table)[index].filename = pg_filename;
+            (*extension_table)[index].block = block;  
             (*extension_table)[index].pid = curr_pid;
         }
+        // cout<< " map file pages: " << pg_filename << " " << block << " with vp " << index << endl;
         inversion[pg_filename][block].push_back(make_pair(&(table->ptes[index]), &(*extension_table)[index]));
     }
     else
@@ -220,13 +227,13 @@ void *vm_map(const char *filename, unsigned int block)
     // return nullptr;
 }
 
-unsigned int bringto_mem_handler(const char *filename, unsigned int block, const char *buffer)
+unsigned int bringto_mem_handler(string& filename, unsigned int block, const char *buffer)
 {
     unsigned int avai_ppn = resident_pages.size() + 1;
     //cout << avai_ppn << "||||" << resident_pages.size() << endl;
     if (resident_pages.size() == num_memory_pages - 1)
     {
-        cout << "Start eviction" << endl;
+        // cout << "Start eviction" << endl;
         valid_page_id id;
         // Find the victim
         while (true)
@@ -234,16 +241,16 @@ unsigned int bringto_mem_handler(const char *filename, unsigned int block, const
             //cout << "In the loop" << endl;
             if (resident_pages.find(clock_queue.front()) == resident_pages.end())
             {
-                cout << "Deleted useless ppn from clock queue" << endl;
+                // cout << "Deleted useless ppn from clock queue" << endl;
                 clock_queue.pop();
                 continue;
             }
             id = resident_pages[clock_queue.front()];
-            cout << "Current candidate: ppn - " << clock_queue.front() << "block - " << id.second << endl;
-            cout << "candidate vp referenced: " << inversion[id.first][id.second][0].second->referenced << endl; 
+            // cout << "Current candidate: ppn - " << clock_queue.front() << "block - " << id.second << endl;
+            // cout << "candidate vp referenced: " << inversion[id.first][id.second][0].second->referenced << endl; 
             if (!inversion[id.first][id.second][0].second->referenced)
             {
-                cout << "Found the vicitim: " << clock_queue.front() << endl;
+                // cout << "Found the vicitim: " << clock_queue.front() << endl;
                 break;
             }
             for (auto &page : inversion[id.first][id.second])
@@ -258,15 +265,15 @@ unsigned int bringto_mem_handler(const char *filename, unsigned int block, const
         auto &page = inversion[id.first][id.second][0];
         if (page.second->dirty)
         {
-            cout << "Started write back" << endl;
+            // cout << "Started write back" << endl;
             if (page.second->filename == "")
                 file_write(nullptr, page.second->block, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
             else
                 file_write(page.second->filename.c_str(), page.second->block, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
         }
-        cout << "Check ppn: " << avai_ppn << endl;
+        // cout << "Check ppn: " << avai_ppn << endl;
         avai_ppn = clock_queue.front();
-        cout << avai_ppn << endl;
+        // cout << avai_ppn << endl;
         // Update the clock queue
         clock_queue.pop();
         for (auto &page : inversion[id.first][id.second]) // Modify the info of the evicted page
@@ -279,14 +286,19 @@ unsigned int bringto_mem_handler(const char *filename, unsigned int block, const
         }
     }
     // Copy content to this physical page
-    if (!buffer)
-        file_read(filename, block, (char *)vm_physmem + avai_ppn * VM_PAGESIZE);
+    // cout <<"read file: "<< filename << " with block: " <<block << endl; 
+    if (!buffer){
+        if ( filename == "" )
+            file_read(nullptr, block, (char *)vm_physmem + avai_ppn * VM_PAGESIZE);
+        else
+            file_read(filename.c_str(), block, (char *)vm_physmem + avai_ppn * VM_PAGESIZE);
+    }
     else
         memcpy((char *)vm_physmem + avai_ppn * VM_PAGESIZE, buffer, VM_PAGESIZE);
     // Update resident pages
-    resident_pages[avai_ppn] = make_pair(string(filename), block);
+    resident_pages[avai_ppn] = make_pair(filename, block);
     // Update the clock queue
-    cout << "newly pushed ppn: " << avai_ppn << endl;
+    // cout << "newly pushed ppn: " << avai_ppn << endl;
     clock_queue.push(avai_ppn);
     // The modification of virtual pages pointing to this new resident page should be handled else where
     return avai_ppn;
@@ -297,6 +309,11 @@ int read_handler(uintptr_t index)
     page_table_entry_t *entry = &(arenas[curr_pid]->process_page_table->ptes[index]);
     extra_info *extra = &(arenas[curr_pid]->pt_extension[index]);
     // pte_deluxe this_page = make_pair(entry, extra);
+    // for( unsigned i = 0; i < 100000000; i++)
+    //     continue;
+    if ( !entry->ppage && extra->filename == "" )
+        return 0;
+    // cout << "to read ppn: " << extra->filename << extra->block << " with ppn: " <<entry->ppage<< " virtual page: "<< index << endl;
     if (extra->resident)
     {
         if (extra->dirty)
@@ -315,10 +332,12 @@ int read_handler(uintptr_t index)
     else
     {
         // Check if there is free physical page
-        unsigned int new_ppn = bringto_mem_handler(extra->filename.c_str(), extra->block, nullptr);
+        unsigned int new_ppn = bringto_mem_handler(extra->filename, extra->block, nullptr);
         // Modify virtual pages pointing to this new resident page
+        // cout << "virtual to change " << extra->filename << " " << extra->block << " with ppn: " << new_ppn << " "<< inversion[extra->filename][extra->block].size() << endl;
         for (auto &page : inversion[extra->filename][extra->block])
         {
+            // cout << "changing " << extra->filename << " " << extra->block << " " <<page.second << endl; 
             page.first->ppage = new_ppn;
             page.first->read_enable = 1;
             page.second->resident = 1;
@@ -333,13 +352,14 @@ int read_handler(uintptr_t index)
 //parent or child?
 int write_handler(uintptr_t index)
 {
-    cout << "Start write handler" << endl;
+    // cout << "Start write handler" << endl;
     page_table_entry_t *entry = &(arenas[curr_pid]->process_page_table->ptes[index]);
     extra_info *extra = &(arenas[curr_pid]->pt_extension[index]);
+    // cout << " index of read in writer_handler is : " << index << endl;
     read_handler(index);
     if ( extra->filename == "" && (inversion[extra->filename][extra->block].size() > 1 || entry->ppage == 0))
     {
-        cout << "Start copy on write" << endl;
+        // cout << "Start copy on write" << endl;
         unsigned int old_block = extra->block;
         unsigned old_ppn = entry->ppage;
         // copy on write
@@ -348,10 +368,10 @@ int write_handler(uintptr_t index)
         memcpy(buffer, (char *)vm_physmem + entry->ppage * VM_PAGESIZE, VM_PAGESIZE);
         // Assign available swap block to the leaf page
         extra->block = sb_table.front();
-        cout << "Assign block: " << sb_table.front() << endl;
+        // cout << "Assign block: " << sb_table.front() << endl;
         sb_table.pop();
         // copy to physmem, and evict if needed
-        unsigned new_ppn = bringto_mem_handler(extra->filename.c_str(), extra->block, buffer);
+        unsigned new_ppn = bringto_mem_handler(extra->filename, extra->block, buffer);
         //change state
         //the virtual page get changed (leaf)
         entry->ppage = new_ppn;
@@ -395,6 +415,16 @@ int vm_fault(const void *addr, bool write_flag)
 {
     uintptr_t index = ((uintptr_t)addr - (uintptr_t)VM_ARENA_BASEADDR) / VM_PAGESIZE;
     // invalid page
+    //debug
+    page_table_t *table = arenas[curr_pid]->process_page_table;
+    vector<extra_info> *extension_table = &(arenas[curr_pid]->pt_extension);
+    // cout << "full vp table ---------: " << endl;
+    // for( unsigned i = 0; i < 6; i++ )
+    // {
+    //     cout << &(*extension_table)[i] << table[i].ptes->ppage << table[i].ptes->read_enable << table[i].ptes->write_enable << (*extension_table)[i].resident << endl;
+    // }
+    // cout<< "-------------------" << endl;
+    //debug end
     if (!arenas[curr_pid]->pt_extension[index].valid)
         return -1;
 
@@ -416,6 +446,7 @@ void vm_destroy()
         extra_info *extra = &((*extension_table)[i]);
         if (!extra->valid)
             break;
+        // cout << "destroied virtual: " << i << " with physical: " << entry->ppage << endl;    
         //swap block
         if (extra->filename == "")
         {
