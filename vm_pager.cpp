@@ -48,9 +48,11 @@ pid_t curr_pid;
 unordered_map<pid_t, process_info *> arenas;
 queue<unsigned int> clock_queue; // For now the element is the ref to vector of pte_deluxe in shared_pages
 /* ------------- Variables and Structs -------------------  */
+int success;
 
 void vm_init(unsigned int memory_pages, unsigned int swap_blocks)
 {
+    success = 0;
     // Assign values to these variables
     num_memory_pages = memory_pages;
     avail_swap_blocks = swap_blocks;
@@ -227,9 +229,17 @@ void *vm_map(const char *filename, unsigned int block)
     // return nullptr;
 }
 
-unsigned int bringto_mem_handler(string& filename, unsigned int block, const char *buffer)
+unsigned int bringto_mem_handler(string& filename, unsigned int block, const char *buffer )
 {
-    unsigned int avai_ppn = resident_pages.size() + 1;
+    // O(n)
+    unsigned int avai_ppn;// = resident_pages.size() + 1;
+    for( size_t i = 1; i < num_memory_pages; i++)
+    {
+        if( resident_pages.find(i) == resident_pages.end() ){
+            avai_ppn = i;
+            break;
+        }
+    }
     //cout << avai_ppn << "||||" << resident_pages.size() << endl;
     if (resident_pages.size() == num_memory_pages - 1)
     {
@@ -255,6 +265,8 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
             }
             for (auto &page : inversion[id.first][id.second])
             {
+                page.first->write_enable = 0;
+                page.first->read_enable = 0;
                 page.second->referenced = 0;
             }
             auto tmp = clock_queue.front();
@@ -267,9 +279,11 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
         {
             // cout << "Started write back" << endl;
             if (page.second->filename == "")
-                file_write(nullptr, page.second->block, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
+                success = file_write(nullptr, page.second->block, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
             else
-                file_write(page.second->filename.c_str(), page.second->block, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
+                success = file_write(page.second->filename.c_str(), page.second->block, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
+            if ( success == -1 )
+                return -1;
         }
         // cout << "Check ppn: " << avai_ppn << endl;
         avai_ppn = clock_queue.front();
@@ -289,9 +303,11 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
     // cout <<"read file: "<< filename << " with block: " <<block << endl; 
     if (!buffer){
         if ( filename == "" )
-            file_read(nullptr, block, (char *)vm_physmem + avai_ppn * VM_PAGESIZE);
+            success = file_read(nullptr, block, (char *)vm_physmem + avai_ppn * VM_PAGESIZE);
         else
-            file_read(filename.c_str(), block, (char *)vm_physmem + avai_ppn * VM_PAGESIZE);
+            success = file_read(filename.c_str(), block, (char *)vm_physmem + avai_ppn * VM_PAGESIZE);
+        if( success == -1 )
+            return 99999;
     }
     else
         memcpy((char *)vm_physmem + avai_ppn * VM_PAGESIZE, buffer, VM_PAGESIZE);
@@ -333,6 +349,8 @@ int read_handler(uintptr_t index)
     {
         // Check if there is free physical page
         unsigned int new_ppn = bringto_mem_handler(extra->filename, extra->block, nullptr);
+        if ( success == -1 )
+            return -1;
         // Modify virtual pages pointing to this new resident page
         // cout << "virtual to change " << extra->filename << " " << extra->block << " with ppn: " << new_ppn << " "<< inversion[extra->filename][extra->block].size() << endl;
         for (auto &page : inversion[extra->filename][extra->block])
@@ -372,6 +390,8 @@ int write_handler(uintptr_t index)
         sb_table.pop();
         // copy to physmem, and evict if needed
         unsigned new_ppn = bringto_mem_handler(extra->filename, extra->block, buffer);
+        if ( success == -1 )
+            return -1;
         //change state
         //the virtual page get changed (leaf)
         entry->ppage = new_ppn;
@@ -466,7 +486,8 @@ void vm_destroy()
                     if (inversion[extra->filename][extra->block][i].second->pid == curr_pid)
                         inversion[extra->filename][extra->block].erase(inversion[extra->filename][extra->block].begin() + i);
                 }
-                if (inversion[extra->filename][extra->block].size() == 1 && inversion[extra->filename][extra->block][0].second->dirty == 1)
+                if (inversion[extra->filename][extra->block].size() == 1 && inversion[extra->filename][extra->block][0].second->dirty == 1 
+                    && inversion[extra->filename][extra->block][0].second->referenced == 1)
                 {
                     inversion[extra->filename][extra->block][0].first->write_enable = 1;
                 }
