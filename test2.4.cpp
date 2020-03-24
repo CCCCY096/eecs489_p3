@@ -5,6 +5,13 @@
 
 using namespace std;
 
+void pc(const char* c)
+{
+   while( *c )
+      cout << *(c++);
+   cout << endl;
+}
+
 int main(){
     char* filename1 = (char*) vm_map(nullptr, 0);
     char* filename2 = (char*) vm_map(nullptr, 0);
@@ -12,15 +19,16 @@ int main(){
     char* filename4 = (char*) vm_map(nullptr, 0);
     char* filename5 = (char*) vm_map(nullptr, 0);
     char* filename6 = (char*) vm_map(nullptr, 0);
-    cout << *filename1 << endl;
+    pc(filename1);
     strcpy(filename1, "shakespeare.txt");
-    cout << *filename1 << endl;
+    pc(filename1);
     strcpy(filename2, "pikachu");
     strcpy(filename3, "charizard");
     strcpy(filename4, "squirtle");
     strcpy(filename5, "ash");
-    cout << *filename5 << " read " << *filename1 << endl;
-    cout << *filename1 << endl;
+    pc(filename5);
+    pc(filename1);
+    pc(filename1);
     strcpy(filename1, "shakespeare");
     int pid = fork();
     if ( !pid ){
