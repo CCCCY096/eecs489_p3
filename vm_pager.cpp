@@ -38,7 +38,15 @@ struct process_info
     size_t avail_vp;
     size_t sb_used;
 };
+
+struct orphan_info{
+  bool dirty;
+  bool referenced;
+  unsigned ppn;  
+};
+
 queue<unsigned> sb_table;
+unordered_map<string, unordered_map<unsigned, orphan_info> > orphans;
 unordered_map<unsigned int, valid_page_id> resident_pages; // ppn -> valid_page_id
 unordered_map<string, unordered_map<unsigned, vector<pte_deluxe>>> inversion;
 // unordered_map<valid_page_id, vector<pte_deluxe> > inversion; // valid_page_id -> pte_deluxe
@@ -179,7 +187,28 @@ void *vm_map(const char *filename, unsigned int block)
             pg_filename += tmp_char;
             filename++;
         }
-        if (inversion.find(pg_filename) != inversion.end() && inversion[pg_filename].find(block) != inversion[pg_filename].end()
+        if (orphans.find(pg_filename) != orphans.end() && orphans[pg_filename].find(block) != orphans[pg_filename].end()) {
+            table->ptes[index].ppage = orphans[pg_filename][block].ppn;
+            if (!orphans[pg_filename][block].referenced)
+            {
+                table->ptes[index].write_enable = 0;
+                table->ptes[index].read_enable = 0;        
+            }
+            else
+            {
+                table->ptes[index].write_enable = orphans[pg_filename][block].dirty;
+                table->ptes[index].read_enable = 1;
+            }
+            (*extension_table)[index].valid = 1;
+            (*extension_table)[index].resident = 1;
+            (*extension_table)[index].referenced = orphans[pg_filename][block].referenced;
+            (*extension_table)[index].dirty = orphans[pg_filename][block].dirty;
+            (*extension_table)[index].filename = pg_filename;
+            (*extension_table)[index].block = block;   
+            (*extension_table)[index].pid = curr_pid;
+            orphans[pg_filename].erase(block);
+        }
+        else if (inversion.find(pg_filename) != inversion.end() && inversion[pg_filename].find(block) != inversion[pg_filename].end()
             && inversion[pg_filename][block].size() > 0)
         {
             table->ptes[index].ppage = inversion[pg_filename][block][0].first->ppage;
@@ -249,54 +278,77 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
         while (true)
         {
             //cout << "In the loop" << endl;
-            if (resident_pages.find(clock_queue.front()) == resident_pages.end())
-            {
-                // cout << "Deleted useless ppn from clock queue" << endl;
-                clock_queue.pop();
-                continue;
-            }
+            // if (resident_pages.find(clock_queue.front()) == resident_pages.end())
+            // {
+            //     // cout << "Deleted useless ppn from clock queue" << endl;
+            //     clock_queue.pop();
+            //     continue;
+            // }
             id = resident_pages[clock_queue.front()];
             // cout << "Current candidate: ppn - " << clock_queue.front() << "block - " << id.second << endl;
             // cout << "candidate vp referenced: " << inversion[id.first][id.second][0].second->referenced << endl; 
-            if (!inversion[id.first][id.second][0].second->referenced)
+            if (orphans.find(id.first) != orphans.end() && orphans[id.first].find(id.second) != orphans[id.first].end() ) 
             {
-                // cout << "Found the vicitim: " << clock_queue.front() << endl;
-                break;
+                if (!orphans[id.first][id.second].referenced)
+                    break;
+                orphans[id.first][id.second].referenced = 0;
             }
-            for (auto &page : inversion[id.first][id.second])
+            else
             {
-                page.first->write_enable = 0;
-                page.first->read_enable = 0;
-                page.second->referenced = 0;
+                if (!inversion[id.first][id.second][0].second->referenced)
+                {
+                    // cout << "Found the vicitim: " << clock_queue.front() << endl;
+                    break;
+                }
+                for (auto &page : inversion[id.first][id.second])
+                {
+                    page.first->write_enable = 0;
+                    page.first->read_enable = 0;
+                    page.second->referenced = 0;
+                }
             }
             auto tmp = clock_queue.front();
             clock_queue.pop();
             clock_queue.push(tmp);
         }
         // Write the content of evicted page into disk
-        auto &page = inversion[id.first][id.second][0];
-        if (page.second->dirty)
-        {
-            // cout << "Started write back" << endl;
-            if (page.second->filename == "")
-                success = file_write(nullptr, page.second->block, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
-            else
-                success = file_write(page.second->filename.c_str(), page.second->block, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
-            if ( success == -1 )
-                return -1;
+        if (orphans.find(id.first) != orphans.end() && orphans[id.first].find(id.second) != orphans[id.first].end() ) {
+            if (orphans[id.first][id.second].dirty)
+            {
+                // Write back
+                success = file_write(id.first.c_str(), id.second, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
+                if (success == -1) return 99999;
+            }
+            avai_ppn = clock_queue.front();
+            clock_queue.pop();
+            orphans[id.first].erase(id.second);
+
         }
-        // cout << "Check ppn: " << avai_ppn << endl;
-        avai_ppn = clock_queue.front();
-        // cout << avai_ppn << endl;
-        // Update the clock queue
-        clock_queue.pop();
-        for (auto &page : inversion[id.first][id.second]) // Modify the info of the evicted page
-        {
-            page.first->read_enable = 0;
-            page.first->write_enable = 0;
-            page.second->resident = 0;
-            page.second->referenced = 0;
-            page.second->dirty = 0;
+        else{
+            auto &page = inversion[id.first][id.second][0];
+            if (page.second->dirty)
+            {
+                // cout << "Started write back" << endl;
+                if (page.second->filename == "")
+                    success = file_write(nullptr, page.second->block, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
+                else
+                    success = file_write(page.second->filename.c_str(), page.second->block, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
+                if ( success == -1 )
+                    return 99999;
+            }
+            // cout << "Check ppn: " << avai_ppn << endl;
+            avai_ppn = clock_queue.front();
+            // cout << avai_ppn << endl;
+            // Update the clock queue
+            clock_queue.pop();
+            for (auto &page : inversion[id.first][id.second]) // Modify the info of the evicted page
+            {
+                page.first->read_enable = 0;
+                page.first->write_enable = 0;
+                page.second->resident = 0;
+                page.second->referenced = 0;
+                page.second->dirty = 0;
+            }
         }
     }
     // Copy content to this physical page
@@ -502,19 +554,26 @@ void vm_destroy()
             // Refactor
             if (extra->resident && inversion[extra->filename][extra->block].size() == 1)
             {
-                // Write back
-                if (extra->dirty)
-                    file_write(extra->filename.c_str(), extra->block, (char*)vm_physmem + entry->ppage * VM_PAGESIZE);
-                // Delete the corresponding entry from resident_pages
-                resident_pages.erase(entry->ppage);
+                //Add to orphan
+                orphans[extra->filename][extra->block].referenced = extra->referenced;
+                orphans[extra->filename][extra->block].dirty = extra->dirty;
+                orphans[extra->filename][extra->block].ppn = entry->ppage;
+                // if (extra->dirty)
+                //     file_write(extra->filename.c_str(), extra->block, (char*)vm_physmem + entry->ppage * VM_PAGESIZE);
+                // // // Delete the corresponding entry from resident_pages
+                // // resident_pages.erase(entry->ppage);
             }
             for (unsigned int i = 0; i < inversion[extra->filename][extra->block].size(); ++i)
             {
                 if (inversion[extra->filename][extra->block][i].second->pid == curr_pid)
                     inversion[extra->filename][extra->block].erase(inversion[extra->filename][extra->block].begin() + i);
+                // if (inversion[extra->filename][extra->block].size() == 0 )
+                //     inversion[extra->filename].erase(extra->block);
             }
         }
     }
     delete table;
+    (*extension_table).clear();
+    delete arenas[curr_pid];
     arenas.erase(curr_pid);
 }
