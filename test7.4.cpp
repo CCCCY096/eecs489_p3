@@ -23,7 +23,8 @@ int main(){
     if (!pid){
         cout << *filename << endl;
         cout << *p1;
-        char *p2 = (char *) vm_map (filename, 1);
+        *tmp3 = 'd';
+        char *p2 = (char *) vm_map (tmp3, 1);
         cout << *p2 << endl;
         return 0;
     }else{

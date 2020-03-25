@@ -103,6 +103,7 @@ int vm_create(pid_t parent_pid, pid_t child_pid)
     {
         page_table_entry_t *parent_entry = &(parent_table->ptes[i]);
         extra_info *parent_extra = &((*parent_extension_table)[i]);
+        // cout << "page created: " << parent_extra->filename << "  " <<parent_extra->block << " " << inversion[parent_extra->filename][parent_extra->block].size()<< endl;
         if (parent_extra->filename == "")
         {
             // cout << "copied virtual: " << i << " with physical: " << parent_entry->ppage << endl;
@@ -148,6 +149,7 @@ void vm_switch(pid_t pid)
 {
     curr_pid = pid;
     page_table_base_register = arenas[pid]->process_page_table;
+    // cout << "size2 is: " << inversion[""][0].size() << endl;
     // cout << "Size of next arenas" << arenas[pid]->avail_vp << endl;
 }
 
@@ -384,6 +386,8 @@ int read_handler(uintptr_t index)
     // cout << "to read ppn: " << extra->filename << extra->block << " with ppn: " <<entry->ppage<< " virtual page: "<< index << endl;
     if (extra->resident)
     {
+        // cout << "read a resident page" << endl;
+        // cout << extra->filename << " " << extra->block << inversion[extra->filename][extra->block].size() << endl;
         if (extra->dirty && !(extra->filename == "" && inversion[extra->filename][extra->block].size() > 1))
         {
             for (auto &page : inversion[extra->filename][extra->block]) //reference needed?
@@ -476,6 +480,7 @@ int write_handler(uintptr_t index)
         page.second->valid = 1;
         page.second->referenced = 1;
         page.second->dirty = 1;
+        page.second->resident = 1;
         page.first->read_enable = 1;
         page.first->write_enable = 1;
     }
@@ -485,6 +490,8 @@ int write_handler(uintptr_t index)
 
 int vm_fault(const void *addr, bool write_flag)
 {
+    // for(unsigned i = 0; i < 100000000; i++)
+    //     continue;
     uintptr_t index = ((uintptr_t)addr - (uintptr_t)VM_ARENA_BASEADDR) / VM_PAGESIZE;
     // invalid page
     //debug
@@ -520,8 +527,11 @@ void vm_destroy()
             break;
         // cout << "destroied virtual: " << i << " with physical: " << entry->ppage << endl;    
         //swap block
+        // cout << "sizeq is " << inversion[""][0].size() << endl;
         if (extra->filename == "")
         {
+            if (!entry->ppage)
+                continue;
             // Refactor?
             if (inversion[extra->filename][extra->block].size() == 1)
             {
