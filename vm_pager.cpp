@@ -179,7 +179,7 @@ void *vm_map(const char *filename, unsigned int block)
                 curr_page_num = ( (size_t) filename - (size_t) VM_ARENA_BASEADDR) / VM_PAGESIZE;
                 entry = &(arenas[curr_pid]->process_page_table->ptes[curr_page_num]);
                 extra = &(arenas[curr_pid]->pt_extension[curr_page_num]);
-                file_pg_valid = vm_fault(filename, false);
+                file_pg_valid = vm_fault(filename, false) + 1;
                 if( !file_pg_valid )
                     return nullptr;
             }
@@ -384,7 +384,7 @@ int read_handler(uintptr_t index)
     // cout << "to read ppn: " << extra->filename << extra->block << " with ppn: " <<entry->ppage<< " virtual page: "<< index << endl;
     if (extra->resident)
     {
-        if (extra->dirty)
+        if (extra->dirty && !(extra->filename == "" && inversion[extra->filename][extra->block].size() > 1))
         {
             for (auto &page : inversion[extra->filename][extra->block]) //reference needed?
             {
