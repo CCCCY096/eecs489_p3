@@ -158,6 +158,9 @@ void *vm_map(const char *filename, unsigned int block)
     page_table_t *table = arenas[curr_pid]->process_page_table;
     vector<extra_info> *extension_table = &(arenas[curr_pid]->pt_extension);
     unsigned index = arenas[curr_pid]->avail_vp;
+    if ( filename )
+        if( (size_t) filename > ( (size_t)VM_ARENA_BASEADDR + VM_ARENA_SIZE ) || (size_t) filename < (size_t) VM_ARENA_BASEADDR )
+            return nullptr;
     if (index == VM_ARENA_SIZE / VM_PAGESIZE ) return nullptr;
     // Make one virtual page valid
     if (filename)
