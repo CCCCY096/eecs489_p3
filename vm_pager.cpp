@@ -80,6 +80,11 @@ int vm_create(pid_t parent_pid, pid_t child_pid)
     // 4 credits version: assume child process has a empty arena
     process_info *child_info = new process_info;
     child_info->process_page_table = new page_table_t;
+    for( unsigned i = 0; i < VM_ARENA_SIZE / VM_PAGESIZE; i++ ){
+        child_info->process_page_table->ptes[i].write_enable = 0;
+        child_info->process_page_table->ptes[i].read_enable = 0;
+        child_info->process_page_table->ptes[i].ppage = 0;
+    }
     child_info->pt_extension.resize(VM_ARENA_SIZE / VM_PAGESIZE);
     child_info->sb_used = 0; // Serve for assersion
     arenas[child_pid] = child_info;
@@ -461,8 +466,10 @@ int write_handler(uintptr_t index)
         {
             for (unsigned int i = 0; i < inversion[extra->filename][old_block].size(); ++i)
             {
-                if (inversion[extra->filename][old_block][i].first->ppage == new_ppn)
+                if (inversion[extra->filename][old_block][i].first->ppage == new_ppn){
                     inversion[extra->filename][old_block].erase(inversion[extra->filename][old_block].begin() + i);
+                    break;
+                }
             }
             if (inversion[extra->filename][old_block].size() == 1)
             {
@@ -531,7 +538,7 @@ void vm_destroy()
         // cout << "destroied virtual: " << i << " with physical: " << entry->ppage << endl;    
         //swap block
         // cout << "sizeq is " << inversion[""][0].size() << endl;
-        if (extra->filename == "")
+        if (extra->filename == "")//cannot campare with ""
         {
             if (!entry->ppage)
                 continue;
@@ -548,8 +555,10 @@ void vm_destroy()
                 avail_swap_blocks++;
                 for (unsigned int i = 0; i < inversion[extra->filename][extra->block].size(); ++i)
                 {
-                    if (inversion[extra->filename][extra->block][i].second->pid == curr_pid)
+                    if (inversion[extra->filename][extra->block][i].second->pid == curr_pid){
                         inversion[extra->filename][extra->block].erase(inversion[extra->filename][extra->block].begin() + i);
+                        break;
+                    }
                 }
                 if (inversion[extra->filename][extra->block].size() == 1 && inversion[extra->filename][extra->block][0].second->dirty == 1 
                     && inversion[extra->filename][extra->block][0].second->referenced == 1)
@@ -576,10 +585,12 @@ void vm_destroy()
                 // // // Delete the corresponding entry from resident_pages
                 // // resident_pages.erase(entry->ppage);
             }
-            for (unsigned int i = 0; i < inversion[extra->filename][extra->block].size(); ++i)
+            for (unsigned int i = 0; i < inversion[extra->filename][extra->block].size(); )
             {
                 if (inversion[extra->filename][extra->block][i].second->pid == curr_pid)
                     inversion[extra->filename][extra->block].erase(inversion[extra->filename][extra->block].begin() + i);
+                else
+                    i++;
                 // if (inversion[extra->filename][extra->block].size() == 0 )
                 //     inversion[extra->filename].erase(extra->block);
             }
