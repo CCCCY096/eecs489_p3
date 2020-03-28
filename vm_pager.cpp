@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <iostream>
+#include <deque>
 using namespace std;
 
 
@@ -54,7 +55,7 @@ unsigned int num_memory_pages;
 unsigned int avail_swap_blocks;
 pid_t curr_pid;
 unordered_map<pid_t, process_info *> arenas;
-queue<unsigned int> clock_queue; // For now the element is the ref to vector of pte_deluxe in shared_pages
+deque<unsigned int> clock_queue; // For now the element is the ref to vector of pte_deluxe in shared_pages
 /* ------------- Variables and Structs -------------------  */
 int success;
 
@@ -279,7 +280,7 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
             break;
         }
     }
-    cout << clock_queue.size() << "||||" << resident_pages.size() << endl;
+    // cout << clock_queue.size() << "||||" << resident_pages.size() << endl;
     if (resident_pages.size() == num_memory_pages - 1)
     {
         // cout << "Start eviction" << endl;
@@ -295,8 +296,8 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
             //     continue;
             // }
             id = resident_pages[clock_queue.front()];
-            cout << "Current candidate: ppn - " << clock_queue.front() << "block - " << id.second << endl;
-            cout << "candidate vp referenced: " << inversion[id.first][id.second][0].second->referenced << endl; 
+            // cout << "Current candidate: ppn - " << clock_queue.front() << "block - " << id.second << endl;
+            // cout << "candidate vp referenced: " << inversion[id.first][id.second][0].second->referenced << endl; 
             if (orphans.find(id.first) != orphans.end() && orphans[id.first].find(id.second) != orphans[id.first].end() ) 
             {
                 if (!orphans[id.first][id.second].referenced)
@@ -318,8 +319,8 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
                 }
             }
             auto tmp = clock_queue.front();
-            clock_queue.pop();
-            clock_queue.push(tmp);
+            clock_queue.pop_front();
+            clock_queue.push_back(tmp);
         }
         // Write the content of evicted page into disk
         if (orphans.find(id.first) != orphans.end() && orphans[id.first].find(id.second) != orphans[id.first].end() ) {
@@ -330,7 +331,7 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
                 if (success == -1) return 99999;
             }
             avai_ppn = clock_queue.front();
-            clock_queue.pop();
+            clock_queue.pop_front();
             orphans[id.first].erase(id.second);
 
         }
@@ -350,7 +351,7 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
             avai_ppn = clock_queue.front();
             // cout << avai_ppn << endl;
             // Update the clock queue
-            clock_queue.pop();
+            clock_queue.pop_front();
             for (auto &page : inversion[id.first][id.second]) // Modify the info of the evicted page
             {
                 page.first->read_enable = 0;
@@ -377,7 +378,8 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
     resident_pages[avai_ppn] = make_pair(filename, block);
     // Update the clock queue
     // cout << "newly pushed ppn: " << avai_ppn << endl;
-    clock_queue.push(avai_ppn);
+    clock_queue.push_back(avai_ppn);
+    // cout << "phsymem size: "<< resident_pages.size();
     // The modification of virtual pages pointing to this new resident page should be handled else where
     return avai_ppn;
 }
@@ -545,6 +547,14 @@ void vm_destroy()
             // Refactor?
             if (inversion[extra->filename][extra->block].size() == 1)
             {
+                for( auto itr = clock_queue.begin(); itr != clock_queue.end(); itr++ )
+                {
+                    if ( *itr == entry->ppage )
+                    {
+                        clock_queue.erase(itr);
+                        break;
+                    }
+                }
                 sb_table.push(extra->block);
                 avail_swap_blocks++;
                 resident_pages.erase(entry->ppage);
