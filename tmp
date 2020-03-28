@@ -1,78 +1,85 @@
 Pager started with 4 physical memory pages
-vm_create       (789, 838)
+vm_create       (10231, 10236)
 vm_create returned 0
-vm_switch       (838)
-                                        returning to (838) with pages:
-vm_map          (838)   0x0     0
+vm_switch       (10236)
+                                        returning to (10236) with pages:
+vm_map          (10236) 0x0     0
 vm_map returned 0x600000000
-                                        returning to (838) with pages:
+                                        returning to (10236) with pages:
                                         r       vpage 0x600000  ppage 0x0
-vm_fault        (838)   0x600000000     write
+vm_fault        (10236) 0x600000000     write
 vm_fault returned 0
-                                        returning to (838) with pages:
+                                        returning to (10236) with pages:
                                         rw      vpage 0x600000  ppage 0x1
-vm_map          (838)   0x600000000     0
+vm_map          (10236) 0x600000000     0
 vm_map returned 0x600001000
-                                        returning to (838) with pages:
+                                        returning to (10236) with pages:
                                         rw      vpage 0x600000  ppage 0x1
-vm_create       (838, 839)
-vm_create returned 0
-                                        returning to (838) with pages:
-                                        r       vpage 0x600000  ppage 0x1
-vm_fault        (838)   0x600001000     write
+vm_map          (10236) 0x600000000     0
+vm_map returned 0x600002000
+                                        returning to (10236) with pages:
+                                        rw      vpage 0x600000  ppage 0x1
+vm_fault        (10236) 0x600002000     read
 file_read       shakespeare.txt 0
 vm_fault returned 0
-                                        returning to (838) with pages:
-                                        r       vpage 0x600000  ppage 0x1
-                                        rw      vpage 0x600001  ppage 0x2
-vm_destroy      (838)
-vm_switch       (839)
-                                        returning to (839) with pages:
+                                        returning to (10236) with pages:
                                         rw      vpage 0x600000  ppage 0x1
-                                        rw      vpage 0x600001  ppage 0x2
-vm_create       (839, 841)
+                                        r       vpage 0x600001  ppage 0x2
+                                        r       vpage 0x600002  ppage 0x2
+vm_create       (10236, 10237)
 vm_create returned 0
-                                        returning to (839) with pages:
+                                        returning to (10236) with pages:
                                         r       vpage 0x600000  ppage 0x1
-                                        rw      vpage 0x600001  ppage 0x2
-vm_map          (839)   0x0     0
-vm_map returned 0x600002000
-                                        returning to (839) with pages:
-                                        r       vpage 0x600000  ppage 0x1
-                                        rw      vpage 0x600001  ppage 0x2
-                                        r       vpage 0x600002  ppage 0x0
-vm_fault        (839)   0x600002000     write
+                                        r       vpage 0x600001  ppage 0x2
+                                        r       vpage 0x600002  ppage 0x2
+vm_fault        (10236) 0x600000000     write
 vm_fault returned 0
-                                        returning to (839) with pages:
+                                        returning to (10236) with pages:
+                                        rw      vpage 0x600000  ppage 0x3
+                                        r       vpage 0x600001  ppage 0x2
+                                        r       vpage 0x600002  ppage 0x2
+vm_destroy      (10236)
+vm_switch       (10237)
+                                        returning to (10237) with pages:
+                                        rw      vpage 0x600000  ppage 0x1
+                                        r       vpage 0x600001  ppage 0x2
+                                        r       vpage 0x600002  ppage 0x2
+vm_create       (10237, 10238)
+vm_create returned 0
+                                        returning to (10237) with pages:
                                         r       vpage 0x600000  ppage 0x1
-                                        rw      vpage 0x600001  ppage 0x2
-                                        rw      vpage 0x600002  ppage 0x3
-vm_map          (839)   0x0     0
+                                        r       vpage 0x600001  ppage 0x2
+                                        r       vpage 0x600002  ppage 0x2
+vm_fault        (10237) 0x600000000     write
+vm_fault returned 0
+                                        returning to (10237) with pages:
+                                        rw      vpage 0x600000  ppage 0x3
+                                        r       vpage 0x600001  ppage 0x2
+                                        r       vpage 0x600002  ppage 0x2
+vm_map          (10237) 0x600000000     0
 vm_map returned 0x600003000
-                                        returning to (839) with pages:
-                                        r       vpage 0x600000  ppage 0x1
-                                        rw      vpage 0x600001  ppage 0x2
-                                        rw      vpage 0x600002  ppage 0x3
-                                        r       vpage 0x600003  ppage 0x0
-vm_fault        (839)   0x600003000     write
-file_write      <swap>  0
-vm_fault returned 0
-                                        returning to (839) with pages:
-                                        rw      vpage 0x600003  ppage 0x1
-vm_map          (839)   0x0     0
+                                        returning to (10237) with pages:
+                                        rw      vpage 0x600000  ppage 0x3
+                                        r       vpage 0x600001  ppage 0x2
+                                        r       vpage 0x600002  ppage 0x2
+vm_map          (10237) 0x600000000     0
 vm_map returned 0x600004000
-                                        returning to (839) with pages:
-                                        rw      vpage 0x600003  ppage 0x1
-vm_fault        (839)   0x600004000     write
-file_write      shakespeare.txt 0
+                                        returning to (10237) with pages:
+                                        rw      vpage 0x600000  ppage 0x3
+                                        r       vpage 0x600001  ppage 0x2
+                                        r       vpage 0x600002  ppage 0x2
+vm_fault        (10237) 0x600003000     read
+file_write      <swap>  2
+file_read       data1.bin       0
 vm_fault returned 0
-                                        returning to (839) with pages:
-                                        rw      vpage 0x600003  ppage 0x1
-                                        rw      vpage 0x600004  ppage 0x2
-vm_destroy      (839)
-vm_switch       (841)
-                                        returning to (841) with pages:
-                                        w       vpage 0x600002  ppage 0x3bca0
-ppage out of range
-pager: src/exipc_pager.cc:354: void ei_pager_putmsg(pid_t, intptr_t, bool): Assertion `0' failed.
-Received signal 6, exiting (see manual page signal(3head) for more info)
+                                        returning to (10237) with pages:
+                                        r       vpage 0x600003  ppage 0x3
+                                        r       vpage 0x600004  ppage 0x3
+vm_destroy      (10237)
+vm_switch       (10238)
+                                        returning to (10238) with pages:
+vm_fault        (10238) 0x600000000     read
+vm_fault returned 0
+                                        returning to (10238) with pages:
+                                        rw      vpage 0x600000  ppage 0x1
+vm_destroy      (10238)

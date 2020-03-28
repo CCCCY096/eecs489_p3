@@ -271,7 +271,7 @@ void *vm_map(const char *filename, unsigned int block)
 unsigned int bringto_mem_handler(string& filename, unsigned int block, const char *buffer )
 {
     // O(n)
-    unsigned int avai_ppn;// = resident_pages.size() + 1;
+    unsigned int avai_ppn = 0;// = resident_pages.size() + 1;
     for( size_t i = 1; i < num_memory_pages; i++)
     {
         if( resident_pages.find(i) == resident_pages.end() ){
@@ -279,7 +279,7 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
             break;
         }
     }
-    //cout << avai_ppn << "||||" << resident_pages.size() << endl;
+    cout << clock_queue.size() << "||||" << resident_pages.size() << endl;
     if (resident_pages.size() == num_memory_pages - 1)
     {
         // cout << "Start eviction" << endl;
@@ -295,8 +295,8 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
             //     continue;
             // }
             id = resident_pages[clock_queue.front()];
-            // cout << "Current candidate: ppn - " << clock_queue.front() << "block - " << id.second << endl;
-            // cout << "candidate vp referenced: " << inversion[id.first][id.second][0].second->referenced << endl; 
+            cout << "Current candidate: ppn - " << clock_queue.front() << "block - " << id.second << endl;
+            cout << "candidate vp referenced: " << inversion[id.first][id.second][0].second->referenced << endl; 
             if (orphans.find(id.first) != orphans.end() && orphans[id.first].find(id.second) != orphans[id.first].end() ) 
             {
                 if (!orphans[id.first][id.second].referenced)
@@ -585,12 +585,12 @@ void vm_destroy()
                 // // // Delete the corresponding entry from resident_pages
                 // // resident_pages.erase(entry->ppage);
             }
-            for (unsigned int i = 0; i < inversion[extra->filename][extra->block].size(); )
+            for (unsigned int i = 0; i < inversion[extra->filename][extra->block].size(); i++)
             {
-                if (inversion[extra->filename][extra->block][i].second->pid == curr_pid)
+                if (inversion[extra->filename][extra->block][i].second->pid == curr_pid){
                     inversion[extra->filename][extra->block].erase(inversion[extra->filename][extra->block].begin() + i);
-                else
-                    i++;
+                    break;
+                }
                 // if (inversion[extra->filename][extra->block].size() == 0 )
                 //     inversion[extra->filename].erase(extra->block);
             }
