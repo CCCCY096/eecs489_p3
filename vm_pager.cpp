@@ -536,7 +536,6 @@ int write_handler(uintptr_t index)
         //change state
         //the virtual page get changed (leaf)
         entry->ppage = new_ppn;
-        extra->resident = true;
         swap_inversion[extra->block].push_back(make_pair(entry, extra));
         //Handle trunck
         // Refactor???
@@ -544,7 +543,7 @@ int write_handler(uintptr_t index)
         {
             for (unsigned int i = 0; i < swap_inversion[old_block].size(); ++i)
             {
-                if (swap_inversion[old_block][i].first->ppage == new_ppn && swap_inversion[old_block][i].second->resident){
+                if (swap_inversion[old_block][i].second->pid == curr_pid){
                     swap_inversion[old_block].erase(swap_inversion[old_block].begin() + i);
                     break;
                 }
@@ -679,7 +678,7 @@ void vm_destroy()
             // TODO
             // resident?
             // Refactor
-            if (extra->resident && inversion[extra->filename][extra->block].size() == 1)
+            if (extra->resident && file_inversion[extra->filename][extra->block].size() == 1)
             {
                 //Add to orphan
                 orphans[extra->filename][extra->block].referenced = extra->referenced;
@@ -690,10 +689,10 @@ void vm_destroy()
                 // // // Delete the corresponding entry from resident_pages
                 // // resident_pages.erase(entry->ppage);
             }
-            for (unsigned int i = 0; i < inversion[extra->filename][extra->block].size(); i++)
+            for (unsigned int i = 0; i < file_inversion[extra->filename][extra->block].size(); i++)
             {
-                if (inversion[extra->filename][extra->block][i].second->pid == curr_pid){
-                    inversion[extra->filename][extra->block].erase(inversion[extra->filename][extra->block].begin() + i);
+                if (file_inversion[extra->filename][extra->block][i].second->pid == curr_pid){
+                    file_inversion[extra->filename][extra->block].erase(file_inversion[extra->filename][extra->block].begin() + i);
                     break;
                 }
                 // if (inversion[extra->filename][extra->block].size() == 0 )
