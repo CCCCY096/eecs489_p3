@@ -513,7 +513,7 @@ int write_handler(uintptr_t index)
     extra_info *extra = &(arenas[curr_pid]->pt_extension[index]);
     // cout << " index of read in writer_handler is : " << index << endl;
     read_handler(index);
-    if ( extra->filename == "" && (inversion[extra->filename][extra->block].size() > 1 || entry->ppage == 0))
+    if ( extra->isswap && (swap_inversion[extra->block].size() > 1 || entry->ppage == 0))
     {
         // cout << "Start copy on write" << endl;
         unsigned int old_block = extra->block;
@@ -527,7 +527,7 @@ int write_handler(uintptr_t index)
         // cout << "Assign block: " << sb_table.front() << endl;
         sb_table.pop();
         // copy to physmem, and evict if needed
-        unsigned new_ppn = bringto_mem_handler(extra->filename, extra->block, buffer);
+        unsigned new_ppn = bringto_mem_handler(extra->filename, extra->block, extra->isswap, buffer);
         if ( success == -1 )
         {
             success = 0;
