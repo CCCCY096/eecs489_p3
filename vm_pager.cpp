@@ -629,13 +629,13 @@ void vm_destroy()
         //swap block
         // cout << "sizeq is " << inversion[""][0].size() << endl;
         
-        if (extra->filename == "")//cannot campare with ""
+        if (extra->isswap)//cannot campare with ""
         {
             if (!entry->ppage)
                 continue;
             // Refactor?
             //cout << "filename: " << extra->filename << " block: " << extra->block << " number of bros " <<  inversion[extra->filename][extra->block].size() << endl;
-            if (inversion[extra->filename][extra->block].size() == 1)
+            if (swap_inversion[extra->block].size() == 1)
             {
                 for( auto itr = clock_queue.begin(); itr != clock_queue.end(); itr++ )
                 {
@@ -649,23 +649,23 @@ void vm_destroy()
                 avail_swap_blocks++;
                 if (extra->resident)
                     resident_pages.erase(entry->ppage);
-                inversion[""].erase(extra->block);
+                swap_inversion.erase(extra->block);
                 //cout << "Resident pages erased: ppage: " << entry->ppage << " and block number: " << extra->block << endl;
             }
             else
             {
                 avail_swap_blocks++;
-                for (unsigned int i = 0; i < inversion[extra->filename][extra->block].size(); ++i)
+                for (unsigned int i = 0; i < swap_inversion[extra->block].size(); ++i)
                 {
-                    if (inversion[extra->filename][extra->block][i].second->pid == curr_pid){
-                        inversion[extra->filename][extra->block].erase(inversion[extra->filename][extra->block].begin() + i);
+                    if (swap_inversion[extra->block][i].second->pid == curr_pid){
+                        swap_inversion[extra->block].erase(swap_inversion[extra->block].begin() + i);
                         break;
                     }
                 }
-                if (inversion[extra->filename][extra->block].size() == 1 && inversion[extra->filename][extra->block][0].second->dirty == 1 
-                    && inversion[extra->filename][extra->block][0].second->referenced == 1)
+                if (swap_inversion[extra->block].size() == 1 && swap_inversion[extra->block][0].second->dirty == 1 
+                    && swap_inversion[extra->block][0].second->referenced == 1)
                 {
-                    inversion[extra->filename][extra->block][0].first->write_enable = 1;
+                    swap_inversion[extra->block][0].first->write_enable = 1;
                 }
             }
             
