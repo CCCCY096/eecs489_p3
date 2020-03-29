@@ -273,6 +273,11 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
 {
     // O(n)
     unsigned int avai_ppn = 0;// = resident_pages.size() + 1;
+    //cout << "number of resident pages " << resident_pages.size() << endl;
+    for (auto x: resident_pages)
+    {
+        //cout << "This page is resident: " << inversion[x.second.first][x.second.second][0].first->ppage << endl;
+    }
     for( size_t i = 1; i < num_memory_pages; i++)
     {
         if( resident_pages.find(i) == resident_pages.end() ){
@@ -280,6 +285,7 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
             break;
         }
     }
+    //cout << "Find the empty ppn (if any): " << avai_ppn << endl;
     // cout << clock_queue.size() << "||||" << resident_pages.size() << endl;
     if (resident_pages.size() == num_memory_pages - 1)
     {
@@ -296,7 +302,7 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
             //     continue;
             // }
             id = resident_pages[clock_queue.front()];
-            // cout << "Current candidate: ppn - " << clock_queue.front() << "block - " << id.second << endl;
+            //cout << "Current candidate: ppn - " << clock_queue.front() << "block - " << id.second << endl;
             // cout << "candidate vp referenced: " << inversion[id.first][id.second][0].second->referenced << endl; 
             if (orphans.find(id.first) != orphans.end() && orphans[id.first].find(id.second) != orphans[id.first].end() ) 
             {
@@ -540,11 +546,13 @@ void vm_destroy()
         // cout << "destroied virtual: " << i << " with physical: " << entry->ppage << endl;    
         //swap block
         // cout << "sizeq is " << inversion[""][0].size() << endl;
+        
         if (extra->filename == "")//cannot campare with ""
         {
             if (!entry->ppage)
                 continue;
             // Refactor?
+            //cout << "filename: " << extra->filename << " block: " << extra->block << " number of bros " <<  inversion[extra->filename][extra->block].size() << endl;
             if (inversion[extra->filename][extra->block].size() == 1)
             {
                 for( auto itr = clock_queue.begin(); itr != clock_queue.end(); itr++ )
@@ -557,8 +565,10 @@ void vm_destroy()
                 }
                 sb_table.push(extra->block);
                 avail_swap_blocks++;
-                resident_pages.erase(entry->ppage);
+                if (extra->resident)
+                    resident_pages.erase(entry->ppage);
                 inversion[""].erase(extra->block);
+                //cout << "Resident pages erased: ppage: " << entry->ppage << " and block number: " << extra->block << endl;
             }
             else
             {
