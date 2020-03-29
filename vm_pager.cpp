@@ -373,7 +373,7 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
             if (page.second->dirty)
             {
                 // cout << "Started write back" << endl;
-                if (page.second->)
+                if (page.second->isswap)
                     success = file_write(nullptr, page.second->block, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
                 else
                     success = file_write(page.second->filename.c_str(), page.second->block, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
@@ -385,13 +385,25 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
             // cout << avai_ppn << endl;
             // Update the clock queue
             clock_queue.pop_front();
-            for (auto &page : inversion[get<0>(id)][get<1>(id)]) // Modify the info of the evicted page
+            if (get<2>(id)) //isswap
             {
-                page.first->read_enable = 0;
-                page.first->write_enable = 0;
-                page.second->resident = 0;
-                page.second->referenced = 0;
-                page.second->dirty = 0;
+                for (auto &page : swap_inversion[get<1>(id)]) // Modify the info of the evicted page
+                {
+                    page.first->read_enable = 0;
+                    page.first->write_enable = 0;
+                    page.second->resident = 0;
+                    page.second->referenced = 0;
+                    page.second->dirty = 0;
+                }
+            }else{
+                for (auto &page : file_inversion[get<0>(id)][get<1>(id)]) // Modify the info of the evicted page
+                {
+                    page.first->read_enable = 0;
+                    page.first->write_enable = 0;
+                    page.second->resident = 0;
+                    page.second->referenced = 0;
+                    page.second->dirty = 0;
+                }
             }
         }
     }
