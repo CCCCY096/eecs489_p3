@@ -1,0 +1,86 @@
+Pager started with 4 physical memory pages
+vm_create	(25489, 2601)
+vm_create returned 0
+vm_switch	(2601)
+					returning to (2601) with pages:
+vm_map		(2601)	0x0	0
+vm_map returned 0x600000000
+					returning to (2601) with pages:
+					r	vpage 0x600000	ppage 0x0
+vm_fault	(2601)	0x600000000	write
+vm_fault returned 0
+					returning to (2601) with pages:
+					rw	vpage 0x600000	ppage 0x1
+vm_map		(2601)	0x600000000	0
+vm_map returned 0x600001000
+					returning to (2601) with pages:
+					rw	vpage 0x600000	ppage 0x1
+vm_map		(2601)	0x600000000	0
+vm_map returned 0x600002000
+					returning to (2601) with pages:
+					rw	vpage 0x600000	ppage 0x1
+vm_fault	(2601)	0x600002000	read
+file_read	shakespeare.txt	0
+vm_fault returned 0
+					returning to (2601) with pages:
+					rw	vpage 0x600000	ppage 0x1
+					r	vpage 0x600001	ppage 0x2
+					r	vpage 0x600002	ppage 0x2
+vm_create	(2601, 2602)
+vm_create returned 0
+					returning to (2601) with pages:
+					r	vpage 0x600000	ppage 0x1
+					r	vpage 0x600001	ppage 0x2
+					r	vpage 0x600002	ppage 0x2
+vm_fault	(2601)	0x600000000	write
+vm_fault returned 0
+					returning to (2601) with pages:
+					rw	vpage 0x600000	ppage 0x3
+					r	vpage 0x600001	ppage 0x2
+					r	vpage 0x600002	ppage 0x2
+vm_destroy	(2601)
+vm_switch	(2602)
+					returning to (2602) with pages:
+					rw	vpage 0x600000	ppage 0x1
+					r	vpage 0x600001	ppage 0x2
+					r	vpage 0x600002	ppage 0x2
+vm_create	(2602, 2603)
+vm_create returned 0
+					returning to (2602) with pages:
+					r	vpage 0x600000	ppage 0x1
+					r	vpage 0x600001	ppage 0x2
+					r	vpage 0x600002	ppage 0x2
+vm_fault	(2602)	0x600000000	write
+vm_fault returned 0
+					returning to (2602) with pages:
+					rw	vpage 0x600000	ppage 0x3
+					r	vpage 0x600001	ppage 0x2
+					r	vpage 0x600002	ppage 0x2
+vm_map		(2602)	0x600000000	0
+vm_map returned 0x600003000
+					returning to (2602) with pages:
+					rw	vpage 0x600000	ppage 0x3
+					r	vpage 0x600001	ppage 0x2
+					r	vpage 0x600002	ppage 0x2
+vm_map		(2602)	0x600000000	0
+vm_map returned 0x600004000
+					returning to (2602) with pages:
+					rw	vpage 0x600000	ppage 0x3
+					r	vpage 0x600001	ppage 0x2
+					r	vpage 0x600002	ppage 0x2
+vm_fault	(2602)	0x600003000	read
+file_write	<swap>	0
+file_read	data1.bin	0
+vm_fault returned 0
+					returning to (2602) with pages:
+					r	vpage 0x600003	ppage 0x1
+					r	vpage 0x600004	ppage 0x1
+vm_destroy	(2602)
+vm_switch	(2603)
+					returning to (2603) with pages:
+vm_fault	(2603)	0x600000000	read
+file_read	<swap>	0
+vm_fault returned 0
+					returning to (2603) with pages:
+					r	vpage 0x600000	ppage 0x3
+vm_destroy	(2603)
