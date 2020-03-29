@@ -473,7 +473,7 @@ int read_handler(uintptr_t index)
     else
     {
         // Check if there is free physical page
-        unsigned int new_ppn = bringto_mem_handler(extra->filename, extra->block, nullptr);
+        unsigned int new_ppn = bringto_mem_handler(extra->filename, extra->block, extra->isswap, nullptr);
         if ( success == -1 )
         {
             success = 0;
@@ -481,15 +481,25 @@ int read_handler(uintptr_t index)
         }
         // Modify virtual pages pointing to this new resident page
         // cout << "virtual to change " << extra->filename << " " << extra->block << " with ppn: " << new_ppn << " "<< inversion[extra->filename][extra->block].size() << endl;
-        for (auto &page : inversion[extra->filename][extra->block])
-        {
-            // cout << "changing " << extra->filename << " " << extra->block << " " <<page.second << endl; 
-            page.first->ppage = new_ppn;
-            page.first->read_enable = 1;
-            page.second->resident = 1;
-            page.second->referenced = 1;
+        if(extra->isswap){
+            for (auto &page : swap_inversion[extra->block])
+            {
+                // cout << "changing " << extra->filename << " " << extra->block << " " <<page.second << endl; 
+                page.first->ppage = new_ppn;
+                page.first->read_enable = 1;
+                page.second->resident = 1;
+                page.second->referenced = 1;
+            }
+        }else{
+            for (auto &page : file_inversion[extra->filename][extra->block])
+            {
+                // cout << "changing " << extra->filename << " " << extra->block << " " <<page.second << endl; 
+                page.first->ppage = new_ppn;
+                page.first->read_enable = 1;
+                page.second->resident = 1;
+                page.second->referenced = 1;
+            }
         }
-
         // Done
     }
     return 0;
