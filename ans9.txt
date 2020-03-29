@@ -1,0 +1,9 @@
+Pager started with 4 physical memory pages
+vm_create       (14053, 28557)
+vm_create returned 0
+vm_switch       (28557)
+                                        returning to (28557) with pages:
+vm_map          (28557) 0x7ffd57536630  0
+vm_map returned 0x0
+                                        returning to (28557) with pages:
+vm_destroy      (28557)
