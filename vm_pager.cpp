@@ -439,24 +439,35 @@ int read_handler(uintptr_t index)
     // pte_deluxe this_page = make_pair(entry, extra);
     // for( unsigned i = 0; i < 100000000; i++)
     //     continue;
-    if ( !entry->ppage && extra->filename == "" )
+    if ( !entry->ppage && extra->isswap )
         return 0;
     // cout << "to read ppn: " << extra->filename << extra->block << " with ppn: " <<entry->ppage<< " virtual page: "<< index << endl;
     if (extra->resident)
     {
         // cout << "read a resident page" << endl;
         // cout << extra->filename << " " << extra->block << inversion[extra->filename][extra->block].size() << endl;
-        if (extra->dirty && !(extra->filename == "" && inversion[extra->filename][extra->block].size() > 1))
+        if (extra->dirty && !(extra->isswap && swap_inversion[extra->block].size() > 1))
         {
-            for (auto &page : inversion[extra->filename][extra->block]) //reference needed?
-            {
-                page.first->write_enable = 1;
+            if(extra->isswap){
+                for (auto &page : swap_inversion[extra->block]) //reference needed?
+                    page.first->write_enable = 1;
+            }else{
+                for (auto &page : file_inversion[extra->filename][extra->block]) //reference needed?
+                    page.first->write_enable = 1;
             }
         }
-        for (auto &page : inversion[extra->filename][extra->block]) //reference needed? add new element in map?
-        {
-            page.first->read_enable = 1;
-            page.second->referenced = 1;
+        if( extra->isswap ){
+            for (auto &page : swap_inversion[extra->block]) //reference needed? add new element in map?
+            {
+                page.first->read_enable = 1;
+                page.second->referenced = 1;
+            }
+        }else{
+            for (auto &page : file_inversion[extra->filename][extra->block]) //reference needed? add new element in map?
+            {
+                page.first->read_enable = 1;
+                page.second->referenced = 1;
+            }
         }
     }
     else
