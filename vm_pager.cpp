@@ -536,22 +536,21 @@ int write_handler(uintptr_t index)
         //change state
         //the virtual page get changed (leaf)
         entry->ppage = new_ppn;
-        extra->resident = true;
-        swap_inversion[extra->block].push_back(make_pair(entry, extra));
+        inversion[extra->filename][extra->block].push_back(make_pair(entry, extra));
         //Handle trunck
         // Refactor???
         if (old_ppn != 0)
         {
-            for (unsigned int i = 0; i < swap_inversion[old_block].size(); ++i)
+            for (unsigned int i = 0; i < inversion[extra->filename][old_block].size(); ++i)
             {
-                if (swap_inversion[old_block][i].first->ppage == new_ppn && swap_inversion[old_block][i].second->resident){
-                    swap_inversion[old_block].erase(swap_inversion[old_block].begin() + i);
+                if (inversion[extra->filename][old_block][i].first->ppage == new_ppn){
+                    inversion[extra->filename][old_block].erase(inversion[extra->filename][old_block].begin() + i);
                     break;
                 }
             }
-            if (swap_inversion[old_block].size() == 1)
+            if (inversion[extra->filename][old_block].size() == 1)
             {
-                pte_deluxe tmp = swap_inversion[old_block][0];
+                pte_deluxe tmp = inversion[extra->filename][old_block][0];
                 if (tmp.second->dirty == 1)
                     tmp.first->write_enable = 1;
             }
