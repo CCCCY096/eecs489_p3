@@ -563,16 +563,28 @@ int write_handler(uintptr_t index)
     //     read_handler(index);
     // }
     //cout << "Start" << endl;
-    for (auto& page: inversion[extra->filename][extra->block])
+    if(extra->isswap)
     {
-        page.second->valid = 1;
-        page.second->referenced = 1;
-        page.second->dirty = 1;
-        page.second->resident = 1;
-        page.first->read_enable = 1;
-        page.first->write_enable = 1;
+        for (auto& page: swap_inversion[extra->block])
+        {
+            page.second->valid = 1;
+            page.second->referenced = 1;
+            page.second->dirty = 1;
+            page.second->resident = 1;
+            page.first->read_enable = 1;
+            page.first->write_enable = 1;
+        }
+    }else{
+        for (auto& page: file_inversion[extra->filename][extra->block])
+        {
+            page.second->valid = 1;
+            page.second->referenced = 1;
+            page.second->dirty = 1;
+            page.second->resident = 1;
+            page.first->read_enable = 1;
+            page.first->write_enable = 1;
+        }
     }
-
     return 0;
 }
 
