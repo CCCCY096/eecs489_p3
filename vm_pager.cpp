@@ -637,12 +637,15 @@ void vm_destroy()
             //cout << "filename: " << extra->filename << " block: " << extra->block << " number of bros " <<  inversion[extra->filename][extra->block].size() << endl;
             if (swap_inversion[extra->block].size() == 1)
             {
-                for( auto itr = clock_queue.begin(); itr != clock_queue.end(); itr++ )
+                if (extra->resident)
                 {
-                    if ( *itr == entry->ppage )
+                    for( auto itr = clock_queue.begin(); itr != clock_queue.end(); itr++ )
                     {
-                        clock_queue.erase(itr);
-                        break;
+                        if ( *itr == entry->ppage )
+                        {
+                            clock_queue.erase(itr);
+                            break;
+                        }
                     }
                 }
                 sb_table.push(extra->block);
