@@ -277,7 +277,7 @@ void *vm_map(const char *filename, unsigned int block)
     // return nullptr;
 }
 
-unsigned int bringto_mem_handler(string& filename, unsigned int block, const char *buffer )
+unsigned int bringto_mem_handler(string& filename, unsigned int block, bool isswap, const char *buffer )
 {
     // O(n)
     unsigned int avai_ppn = 0;// = resident_pages.size() + 1;
@@ -410,7 +410,7 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
     // Copy content to this physical page
     // cout <<"read file: "<< filename << " with block: " <<block << endl; 
     if (!buffer){
-        if ( filename == "" )
+        if ( isswap )
             success = file_read(nullptr, block, (char *)vm_physmem + avai_ppn * VM_PAGESIZE);
         else
             success = file_read(filename.c_str(), block, (char *)vm_physmem + avai_ppn * VM_PAGESIZE);
@@ -423,7 +423,7 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
     else
         memcpy((char *)vm_physmem + avai_ppn * VM_PAGESIZE, buffer, VM_PAGESIZE);
     // Update resident pages
-    resident_pages[avai_ppn] = make_pair(filename, block);
+    resident_pages[avai_ppn] = make_tuple(filename, block, isswap);
     // Update the clock queue
     // cout << "newly pushed ppn: " << avai_ppn << endl;
     clock_queue.push_back(avai_ppn);
