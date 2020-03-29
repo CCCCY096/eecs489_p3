@@ -376,7 +376,10 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
         else
             success = file_read(filename.c_str(), block, (char *)vm_physmem + avai_ppn * VM_PAGESIZE);
         if( success == -1 )
+        {
+            resident_pages.erase(avai_ppn);
             return 99999;
+        }
     }
     else
         memcpy((char *)vm_physmem + avai_ppn * VM_PAGESIZE, buffer, VM_PAGESIZE);
@@ -422,7 +425,10 @@ int read_handler(uintptr_t index)
         // Check if there is free physical page
         unsigned int new_ppn = bringto_mem_handler(extra->filename, extra->block, nullptr);
         if ( success == -1 )
+        {
+            success = 0;
             return -1;
+        }
         // Modify virtual pages pointing to this new resident page
         // cout << "virtual to change " << extra->filename << " " << extra->block << " with ppn: " << new_ppn << " "<< inversion[extra->filename][extra->block].size() << endl;
         for (auto &page : inversion[extra->filename][extra->block])
@@ -463,7 +469,10 @@ int write_handler(uintptr_t index)
         // copy to physmem, and evict if needed
         unsigned new_ppn = bringto_mem_handler(extra->filename, extra->block, buffer);
         if ( success == -1 )
+        {
+            success = 0;
             return -1;
+        }
         //change state
         //the virtual page get changed (leaf)
         entry->ppage = new_ppn;
