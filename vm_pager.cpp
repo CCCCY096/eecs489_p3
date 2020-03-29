@@ -9,6 +9,7 @@
 #include <string.h>
 #include <iostream>
 #include <deque>
+#include <tuple>
 using namespace std;
 
 
@@ -16,13 +17,14 @@ using namespace std;
 
 struct extra_info;
 typedef pair<page_table_entry_t *, extra_info *> pte_deluxe; // a pte entry with extra info
-typedef pair<string, unsigned int> valid_page_id;            // valid physical page unique idenditifier
+typedef tuple<string, unsigned int, bool> valid_page_id;            // valid physical page unique idenditifier
 
 /* ------------- Variables and Structs -------------------  */
 char buffer[VM_PAGESIZE];
 // extra info for page table entry
 struct extra_info
 {
+    bool isswap;
     bool valid;
     bool resident;
     bool referenced;
@@ -49,7 +51,8 @@ struct orphan_info{
 queue<unsigned> sb_table;
 unordered_map<string, unordered_map<unsigned, orphan_info> > orphans;
 unordered_map<unsigned int, valid_page_id> resident_pages; // ppn -> valid_page_id
-unordered_map<string, unordered_map<unsigned, vector<pte_deluxe>>> inversion;
+unordered_map<string, unordered_map<unsigned, vector<pte_deluxe>>> file_inversion;
+unordered_map<unsigned int,vector<pte_deluxe> > swap_inversion;
 // unordered_map<valid_page_id, vector<pte_deluxe> > inversion; // valid_page_id -> pte_deluxe
 unsigned int num_memory_pages;
 unsigned int avail_swap_blocks;
@@ -110,7 +113,7 @@ int vm_create(pid_t parent_pid, pid_t child_pid)
         page_table_entry_t *parent_entry = &(parent_table->ptes[i]);
         extra_info *parent_extra = &((*parent_extension_table)[i]);
         // cout << "page created: " << parent_extra->filename << "  " <<parent_extra->block << " " << inversion[parent_extra->filename][parent_extra->block].size()<< endl;
-        if (parent_extra->filename == "")
+        if (parent_extra->isswap)
         {
             // cout << "copied virtual: " << i << " with physical: " << parent_entry->ppage << endl;
             // Make the parent page's write_enable 0
@@ -123,14 +126,14 @@ int vm_create(pid_t parent_pid, pid_t child_pid)
             (*child_extension_table)[i].resident = parent_extra->resident;
             (*child_extension_table)[i].referenced = parent_extra->referenced;
             (*child_extension_table)[i].dirty = parent_extra->dirty;
-            (*child_extension_table)[i].filename = parent_extra->filename;
+            // (*child_extension_table)[i].filename = parent_extra->filename;
             (*child_extension_table)[i].block = parent_extra->block;
             (*child_extension_table)[i].pid = child_pid;
+            (*child_extension_table)[i].isswap = true;
             avail_swap_blocks--;
             arenas[child_pid]->sb_used++;
             if( parent_entry->ppage )
-                inversion[""][parent_extra->block].push_back(make_pair(&(child_table->ptes[i]), &(*child_extension_table)[i]));
-
+                swap_inversion[parent_extra->block].push_back(make_pair(&(child_table->ptes[i]), &(*child_extension_table)[i]));
         }
         else
         {
@@ -144,7 +147,8 @@ int vm_create(pid_t parent_pid, pid_t child_pid)
             (*child_extension_table)[i].filename = parent_extra->filename;
             (*child_extension_table)[i].block = parent_extra->block;
             (*child_extension_table)[i].pid = child_pid;
-            inversion[parent_extra->filename][parent_extra->block].push_back(make_pair(&(child_table->ptes[i]), &(*child_extension_table)[i]));
+            (*child_extension_table)[i].isswap = false;
+            file_inversion[parent_extra->filename][parent_extra->block].push_back(make_pair(&(child_table->ptes[i]), &(*child_extension_table)[i]));
         }
     }
     // cout << "child with num of " << arenas[child_pid]->avail_vp << " pages" << endl;
@@ -217,21 +221,23 @@ void *vm_map(const char *filename, unsigned int block)
             (*extension_table)[index].filename = pg_filename;
             (*extension_table)[index].block = block;   
             (*extension_table)[index].pid = curr_pid;
+            (*extension_table)[index].isswap = false;
             orphans[pg_filename].erase(block);
         }
-        else if (inversion.find(pg_filename) != inversion.end() && inversion[pg_filename].find(block) != inversion[pg_filename].end()
-            && inversion[pg_filename][block].size() > 0)
+        else if (file_inversion.find(pg_filename) != file_inversion.end() && file_inversion[pg_filename].find(block) != file_inversion[pg_filename].end()
+            && file_inversion[pg_filename][block].size() > 0)
         {
-            table->ptes[index].ppage = inversion[pg_filename][block][0].first->ppage;
-            table->ptes[index].write_enable = inversion[pg_filename][block][0].first->write_enable;
-            table->ptes[index].read_enable = inversion[pg_filename][block][0].first->read_enable;
-            (*extension_table)[index].valid = inversion[pg_filename][block][0].second->valid;
-            (*extension_table)[index].resident = inversion[pg_filename][block][0].second->resident;
-            (*extension_table)[index].referenced = inversion[pg_filename][block][0].second->referenced;
-            (*extension_table)[index].dirty = inversion[pg_filename][block][0].second->dirty; //dirty bit?
+            table->ptes[index].ppage = file_inversion[pg_filename][block][0].first->ppage;
+            table->ptes[index].write_enable = file_inversion[pg_filename][block][0].first->write_enable;
+            table->ptes[index].read_enable = file_inversion[pg_filename][block][0].first->read_enable;
+            (*extension_table)[index].valid = file_inversion[pg_filename][block][0].second->valid;
+            (*extension_table)[index].resident = file_inversion[pg_filename][block][0].second->resident;
+            (*extension_table)[index].referenced = file_inversion[pg_filename][block][0].second->referenced;
+            (*extension_table)[index].dirty = file_inversion[pg_filename][block][0].second->dirty; //dirty bit?
             (*extension_table)[index].filename = pg_filename;
             (*extension_table)[index].block = block;   
-            (*extension_table)[index].pid = curr_pid;   
+            (*extension_table)[index].pid = curr_pid;
+            (*extension_table)[index].isswap = false;   
         }
         else{
             table->ptes[index].ppage = 0;
@@ -244,9 +250,10 @@ void *vm_map(const char *filename, unsigned int block)
             (*extension_table)[index].filename = pg_filename;
             (*extension_table)[index].block = block;  
             (*extension_table)[index].pid = curr_pid;
+            (*extension_table)[index].isswap = false;
         }
         // cout<< " map file pages: " << pg_filename << " " << block << " with vp " << index << endl;
-        inversion[pg_filename][block].push_back(make_pair(&(table->ptes[index]), &(*extension_table)[index]));
+        file_inversion[pg_filename][block].push_back(make_pair(&(table->ptes[index]), &(*extension_table)[index]));
     }
     else
     {
@@ -259,8 +266,9 @@ void *vm_map(const char *filename, unsigned int block)
         (*extension_table)[index].resident = 1;
         (*extension_table)[index].referenced = 1;
         (*extension_table)[index].dirty = 0;
-        (*extension_table)[index].filename = string("");
+        // (*extension_table)[index].filename = string("");
         (*extension_table)[index].pid = curr_pid;
+        (*extension_table)[index].isswap = true;
         avail_swap_blocks--;
         arenas[curr_pid]->sb_used++;
     }
@@ -274,10 +282,10 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
     // O(n)
     unsigned int avai_ppn = 0;// = resident_pages.size() + 1;
     //cout << "number of resident pages " << resident_pages.size() << endl;
-    for (auto x: resident_pages)
-    {
-        //cout << "This page is resident: " << inversion[x.second.first][x.second.second][0].first->ppage << endl;
-    }
+    // for (auto x: resident_pages)
+    // {
+    //     //cout << "This page is resident: " << inversion[x.second.first][x.second.second][0].first->ppage << endl;
+    // }
     for( size_t i = 1; i < num_memory_pages; i++)
     {
         if( resident_pages.find(i) == resident_pages.end() ){
@@ -302,26 +310,41 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
             //     continue;
             // }
             id = resident_pages[clock_queue.front()];
-            //cout << "Current candidate: ppn - " << clock_queue.front() << "block - " << id.second << endl;
-            // cout << "candidate vp referenced: " << inversion[id.first][id.second][0].second->referenced << endl; 
-            if (orphans.find(id.first) != orphans.end() && orphans[id.first].find(id.second) != orphans[id.first].end() ) 
+            //cout << "Current candidate: ppn - " << clock_queue.front() << "block - " << get<1>(id) << endl;
+            // cout << "candidate vp referenced: " << inversion[get<0>(id)][get<1>(id)][0].second->referenced << endl; 
+            if (orphans.find(get<0>(id)) != orphans.end() && orphans[get<0>(id)].find(get<1>(id)) != orphans[get<0>(id)].end() ) 
             {
-                if (!orphans[id.first][id.second].referenced)
+                if (!orphans[get<0>(id)][get<1>(id)].referenced)
                     break;
-                orphans[id.first][id.second].referenced = 0;
+                orphans[get<0>(id)][get<1>(id)].referenced = 0;
             }
             else
             {
-                if (!inversion[id.first][id.second][0].second->referenced)
+                if( get<2>(id) )//isswap
                 {
-                    // cout << "Found the vicitim: " << clock_queue.front() << endl;
-                    break;
-                }
-                for (auto &page : inversion[id.first][id.second])
-                {
-                    page.first->write_enable = 0;
-                    page.first->read_enable = 0;
-                    page.second->referenced = 0;
+                    if (!swap_inversion[get<1>(id)][0].second->referenced)
+                    {
+                        // cout << "Found the vicitim: " << clock_queue.front() << endl;
+                        break;
+                    }
+                    for (auto &page : swap_inversion[get<1>(id)])
+                    {
+                        page.first->write_enable = 0;
+                        page.first->read_enable = 0;
+                        page.second->referenced = 0;
+                    }
+                }else{
+                    if (!file_inversion[get<0>(id)][get<1>(id)][0].second->referenced)
+                    {
+                        // cout << "Found the vicitim: " << clock_queue.front() << endl;
+                        break;
+                    }
+                    for (auto &page : file_inversion[get<0>(id)][get<1>(id)])
+                    {
+                        page.first->write_enable = 0;
+                        page.first->read_enable = 0;
+                        page.second->referenced = 0;
+                    }
                 }
             }
             auto tmp = clock_queue.front();
@@ -329,24 +352,28 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
             clock_queue.push_back(tmp);
         }
         // Write the content of evicted page into disk
-        if (orphans.find(id.first) != orphans.end() && orphans[id.first].find(id.second) != orphans[id.first].end() ) {
-            if (orphans[id.first][id.second].dirty)
+        if (orphans.find(get<0>(id)) != orphans.end() && orphans[get<0>(id)].find(get<1>(id)) != orphans[get<0>(id)].end() ) {
+            if (orphans[get<0>(id)][get<1>(id)].dirty)
             {
                 // Write back
-                success = file_write(id.first.c_str(), id.second, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
+                success = file_write(get<0>(id).c_str(), get<1>(id), (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
                 if (success == -1) return 99999;
             }
             avai_ppn = clock_queue.front();
             clock_queue.pop_front();
-            orphans[id.first].erase(id.second);
+            orphans[get<0>(id)].erase(get<1>(id));
 
         }
         else{
-            auto &page = inversion[id.first][id.second][0];
+            pte_deluxe page;
+            if (get<2>(id)) //isswap
+                page = swap_inversion[get<1>(id)][0];
+            else
+                page = file_inversion[get<0>(id)][get<1>(id)][0];
             if (page.second->dirty)
             {
                 // cout << "Started write back" << endl;
-                if (page.second->filename == "")
+                if (page.second->)
                     success = file_write(nullptr, page.second->block, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
                 else
                     success = file_write(page.second->filename.c_str(), page.second->block, (char *)vm_physmem + clock_queue.front() * VM_PAGESIZE);
@@ -358,7 +385,7 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, const cha
             // cout << avai_ppn << endl;
             // Update the clock queue
             clock_queue.pop_front();
-            for (auto &page : inversion[id.first][id.second]) // Modify the info of the evicted page
+            for (auto &page : inversion[get<0>(id)][get<1>(id)]) // Modify the info of the evicted page
             {
                 page.first->read_enable = 0;
                 page.first->write_enable = 0;
