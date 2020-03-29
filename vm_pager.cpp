@@ -536,21 +536,22 @@ int write_handler(uintptr_t index)
         //change state
         //the virtual page get changed (leaf)
         entry->ppage = new_ppn;
-        inversion[extra->filename][extra->block].push_back(make_pair(entry, extra));
+        extra->resident = true;
+        swap_inversion[extra->block].push_back(make_pair(entry, extra));
         //Handle trunck
         // Refactor???
         if (old_ppn != 0)
         {
-            for (unsigned int i = 0; i < inversion[extra->filename][old_block].size(); ++i)
+            for (unsigned int i = 0; i < swap_inversion[old_block].size(); ++i)
             {
-                if (inversion[extra->filename][old_block][i].first->ppage == new_ppn){
-                    inversion[extra->filename][old_block].erase(inversion[extra->filename][old_block].begin() + i);
+                if (swap_inversion[old_block][i].first->ppage == new_ppn && swap_inversion[old_block][i].second->resident){
+                    swap_inversion[old_block].erase(swap_inversion[old_block].begin() + i);
                     break;
                 }
             }
-            if (inversion[extra->filename][old_block].size() == 1)
+            if (swap_inversion[old_block].size() == 1)
             {
-                pte_deluxe tmp = inversion[extra->filename][old_block][0];
+                pte_deluxe tmp = swap_inversion[old_block][0];
                 if (tmp.second->dirty == 1)
                     tmp.first->write_enable = 1;
             }
@@ -562,16 +563,28 @@ int write_handler(uintptr_t index)
     //     read_handler(index);
     // }
     //cout << "Start" << endl;
-    for (auto& page: inversion[extra->filename][extra->block])
+    if(extra->isswap)
     {
-        page.second->valid = 1;
-        page.second->referenced = 1;
-        page.second->dirty = 1;
-        page.second->resident = 1;
-        page.first->read_enable = 1;
-        page.first->write_enable = 1;
+        for (auto& page: swap_inversion[extra->block])
+        {
+            page.second->valid = 1;
+            page.second->referenced = 1;
+            page.second->dirty = 1;
+            page.second->resident = 1;
+            page.first->read_enable = 1;
+            page.first->write_enable = 1;
+        }
+    }else{
+        for (auto& page: file_inversion[extra->filename][extra->block])
+        {
+            page.second->valid = 1;
+            page.second->referenced = 1;
+            page.second->dirty = 1;
+            page.second->resident = 1;
+            page.first->read_enable = 1;
+            page.first->write_enable = 1;
+        }
     }
-
     return 0;
 }
 
