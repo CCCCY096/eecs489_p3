@@ -48,7 +48,7 @@ int main(){
         if(pid2){
             // Child1. Shared with its children
             char *myswap = (char*) vm_map(nullptr, 0);
-            *fs2 = 'ttt'; 
+            *fs2 = 't'; 
             strcpy(myswap, "shakespeare.txt"); // swap9 made resident. There should be no evictoin        
             cout << *swap0 << endl; // there should be not fualt
             *swap0 = 1; // there should be copy on write
