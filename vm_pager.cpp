@@ -10,6 +10,7 @@
 #include <iostream>
 #include <deque>
 #include <tuple>
+#include <cassert>
 using namespace std;
 
 
@@ -62,9 +63,15 @@ deque<unsigned int> clock_queue; // For now the element is the ref to vector of 
 /* ------------- Variables and Structs -------------------  */
 int success;
 
+void clear_buffer(){
+    for(unsigned i = 0; i < VM_PAGESIZE; i++ )
+        buffer[i] = 0;
+}
+
 void vm_init(unsigned int memory_pages, unsigned int swap_blocks)
 {
     success = 0;
+    clear_buffer();
     // Assign values to these variables
     orphans.clear();
     resident_pages.clear();
@@ -136,6 +143,7 @@ int vm_create(pid_t parent_pid, pid_t child_pid)
             child_table->ptes[i].read_enable = parent_entry->read_enable;
             child_table->ptes[i].write_enable = parent_entry->write_enable;
             (*child_extension_table)[i].valid = parent_extra->valid;
+            assert(parent_extra->valid);
             (*child_extension_table)[i].resident = parent_extra->resident;
             (*child_extension_table)[i].referenced = parent_extra->referenced;
             (*child_extension_table)[i].dirty = parent_extra->dirty;
@@ -164,6 +172,7 @@ int vm_create(pid_t parent_pid, pid_t child_pid)
             file_inversion[parent_extra->filename][parent_extra->block].push_back(make_pair(&(child_table->ptes[i]), &(*child_extension_table)[i]));
         }
     }
+    assert( arenas[child_pid]->sb_used == arenas[parent_pid]->sb_used);
     // cout << "child with num of " << arenas[child_pid]->avail_vp << " pages" << endl;
     return 0;
 }
@@ -277,8 +286,8 @@ void *vm_map(const char *filename, unsigned int block)
         table->ptes[index].read_enable = 1;
         (*extension_table)[index].valid = 1;
         (*extension_table)[index].resident = 1;
-        (*extension_table)[index].referenced = 1;
-        (*extension_table)[index].dirty = 0;
+        (*extension_table)[index].referenced = 0;
+        (*extension_table)[index].dirty = false;
         // (*extension_table)[index].filename = string("");
         (*extension_table)[index].pid = curr_pid;
         (*extension_table)[index].isswap = true;
@@ -436,6 +445,7 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, bool issw
     else
         memcpy((char *)vm_physmem + avai_ppn * VM_PAGESIZE, buffer, VM_PAGESIZE);
     // Update resident pages
+    assert( avai_ppn != 0 );
     resident_pages[avai_ppn] = make_tuple(filename, block, isswap);
     // Update the clock queue
     // cout << "newly pushed ppn: " << avai_ppn << endl;
@@ -500,6 +510,7 @@ int read_handler(uintptr_t index)
                 // cout << "changing " << extra->filename << " " << extra->block << " " <<page.second << endl; 
                 page.first->ppage = new_ppn;
                 page.first->read_enable = 1;
+                page.second->dirty = false;
                 page.second->resident = 1;
                 page.second->referenced = 1;
             }
@@ -521,11 +532,12 @@ int read_handler(uintptr_t index)
 //parent or child?
 int write_handler(uintptr_t index)
 {
+    int read_successed = read_handler(index);
+    if ( read_successed == -1 ) return  -1;  
     // cout << "Start write handler" << endl;
     page_table_entry_t *entry = &(arenas[curr_pid]->process_page_table->ptes[index]);
     extra_info *extra = &(arenas[curr_pid]->pt_extension[index]);
     // cout << " index of read in writer_handler is : " << index << endl;
-    read_handler(index);
     if ( extra->isswap && (swap_inversion[extra->block].size() > 1 || entry->ppage == 0))
     {
         // cout << "Start copy on write" << endl;
@@ -534,6 +546,7 @@ int write_handler(uintptr_t index)
         // copy on write
         // read into buffer
         // read_handler(index);
+        clear_buffer();
         memcpy(buffer, (char *)vm_physmem + entry->ppage * VM_PAGESIZE, VM_PAGESIZE);
         // Assign available swap block to the leaf page
         extra->block = sb_table.front();
@@ -640,9 +653,10 @@ void vm_destroy()
         // cout << "destroied virtual: " << i << " with physical: " << entry->ppage << endl;    
         //swap block
         // cout << "sizeq is " << inversion[""][0].size() << endl;
-        
+        arenas[curr_pid]->avail_vp--;
         if (extra->isswap)//cannot campare with ""
         {
+            arenas[curr_pid]->sb_used--;
             if (!entry->ppage){
                 avail_swap_blocks++;
                 continue;
@@ -657,6 +671,7 @@ void vm_destroy()
                     {
                         if ( *itr == entry->ppage )
                         {
+                            assert(curr_pid == extra->pid);
                             clock_queue.erase(itr);
                             break;
                         }
@@ -667,6 +682,12 @@ void vm_destroy()
                 if (extra->resident)
                     resident_pages.erase(entry->ppage);
                 swap_inversion.erase(extra->block);
+                entry->read_enable = 0;
+                entry->write_enable = 0;
+                extra->valid = 0;
+                extra->referenced = 0;
+                extra->resident = 0;
+                extra->dirty = 0;
                 //cout << "Resident pages erased: ppage: " << entry->ppage << " and block number: " << extra->block << endl;
             }
             else
