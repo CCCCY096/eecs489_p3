@@ -66,6 +66,12 @@ void vm_init(unsigned int memory_pages, unsigned int swap_blocks)
 {
     success = 0;
     // Assign values to these variables
+    orphans.clear();
+    resident_pages.clear();
+    file_inversion.clear();
+    swap_inversion.clear();
+    clock_queue.clear();
+    arenas.clear();
     num_memory_pages = memory_pages;
     avail_swap_blocks = swap_blocks;
     // Create and pin the "zero page"
@@ -84,12 +90,19 @@ int vm_create(pid_t parent_pid, pid_t child_pid)
     // 4 credits version: assume child process has a empty arena
     process_info *child_info = new process_info;
     child_info->process_page_table = new page_table_t;
+    child_info->pt_extension.clear();
     for( unsigned i = 0; i < VM_ARENA_SIZE / VM_PAGESIZE; i++ ){
         child_info->process_page_table->ptes[i].write_enable = 0;
         child_info->process_page_table->ptes[i].read_enable = 0;
         child_info->process_page_table->ptes[i].ppage = 0;
+        extra_info tmp;
+        tmp.dirty = false;
+        tmp.pid = child_pid;
+        tmp.resident = false;
+        tmp.valid = false;
+        tmp.referenced =false;
+        child_info->pt_extension.push_back(tmp); 
     }
-    child_info->pt_extension.resize(VM_ARENA_SIZE / VM_PAGESIZE);
     child_info->sb_used = 0; // Serve for assersion
     arenas[child_pid] = child_info;
     if(arenas.find(parent_pid) != arenas.end())
@@ -630,8 +643,10 @@ void vm_destroy()
         
         if (extra->isswap)//cannot campare with ""
         {
-            if (!entry->ppage)
+            if (!entry->ppage){
+                avail_swap_blocks++;
                 continue;
+            }
             // Refactor?
             //cout << "filename: " << extra->filename << " block: " << extra->block << " number of bros " <<  inversion[extra->filename][extra->block].size() << endl;
             if (swap_inversion[extra->block].size() == 1)
