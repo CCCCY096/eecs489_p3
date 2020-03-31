@@ -10,7 +10,7 @@
 #include <iostream>
 #include <deque>
 #include <tuple>
-#include <cassert>
+#include <assert.h>
 using namespace std;
 
 
@@ -132,6 +132,8 @@ int vm_create(pid_t parent_pid, pid_t child_pid)
     {
         page_table_entry_t *parent_entry = &(parent_table->ptes[i]);
         extra_info *parent_extra = &((*parent_extension_table)[i]);
+        // cout<< i <<" " << child_entry->write_enable <<" " <<child_entry->sread_enable<< " " << child_extra->dirty <<" " << child_extra->referenced << " " << child_extra->resident<< " " <<child_extra->valid << endl;
+        // cout<< i <<" " << parent_entry->write_enable <<" " <<parent_entry->sread_enable<< " " << parent_extra->dirty <<" " << parent_extra->referenced << " " << parent_extra->resident<< " " <<parent_extra->valid << endl;
         // cout << "page created: " << parent_extra->filename << "  " <<parent_extra->block << " " << inversion[parent_extra->filename][parent_extra->block].size()<< endl;
         if (parent_extra->isswap)
         {
@@ -510,7 +512,8 @@ int read_handler(uintptr_t index)
                 // cout << "changing " << extra->filename << " " << extra->block << " " <<page.second << endl; 
                 page.first->ppage = new_ppn;
                 page.first->read_enable = 1;
-                page.second->dirty = false;
+                page.first->write_enable = 0;
+                page.second->dirty = 0;
                 page.second->resident = 1;
                 page.second->referenced = 1;
             }
@@ -520,6 +523,8 @@ int read_handler(uintptr_t index)
                 // cout << "changing " << extra->filename << " " << extra->block << " " <<page.second << endl; 
                 page.first->ppage = new_ppn;
                 page.first->read_enable = 1;
+                page.first->write_enable = 0;
+                page.second->dirty = false;
                 page.second->resident = 1;
                 page.second->referenced = 1;
             }
@@ -577,8 +582,10 @@ int write_handler(uintptr_t index)
             if (swap_inversion[old_block].size() == 1)
             {
                 pte_deluxe tmp = swap_inversion[old_block][0];
-                if (tmp.second->dirty == 1)
+                if (tmp.second->dirty == 1){
+                    assert(tmp.second->referenced == 1);
                     tmp.first->write_enable = 1;
+                }
             }
         }
     }
@@ -590,6 +597,7 @@ int write_handler(uintptr_t index)
     //cout << "Start" << endl;
     if(extra->isswap)
     {
+        assert(swap_inversion[extra->block] == 1);
         for (auto& page: swap_inversion[extra->block])
         {
             page.second->valid = 1;

@@ -13,11 +13,10 @@ int main(){
     int pid = fork();
     strcpy(swap0, "shakespeare.txt");
     strcpy(swap1, "shakespeare.txt");
-    char *fs1 = (char*) vm_map(swap0,0);
-    char *fs2 = (char*) vm_map(swap0,0);
     strcpy(swap2, "shakespeare.txt");
     strcpy(swap3, "shakespeare.txt");
-
+    char *fs1 = (char*) vm_map(nullptr, 3);
+    char *fs2 = (char*) vm_map(nullptr, 4);
     cout<<*fs1<<endl;
     cout<<*fs2<<endl;
 
@@ -34,7 +33,6 @@ int main(){
             strcpy(myswap, "shakespeare.txt"); // swap7 made resident
             cout << *swap0 << endl; // swap0 is made resident
             cout<<*fs1 <<endl;
-            char *tmp = (char*) vm_map(fs1, 0);
         }
         else
         {
