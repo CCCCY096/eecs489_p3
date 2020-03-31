@@ -587,7 +587,7 @@ int write_handler(uintptr_t index)
             if (swap_inversion[old_block].size() == 1)
             {
                 pte_deluxe tmp = swap_inversion[old_block][0];
-                if (tmp.second->dirty == 1){
+                if (tmp.second->dirty == 1 && tmp.second->referenced == 1){
                     assert(tmp.second->referenced == 1);
                     tmp.first->write_enable = 1;
                 }
