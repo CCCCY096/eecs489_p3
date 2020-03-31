@@ -19,16 +19,20 @@ int main(){
     else{
         int pid2 = fork();
         if( !pid2 ){
+            vm_yield();
             char* block11 = (char*) vm_map(filename1, 1);
             char* block22 = (char*) vm_map(filename1, 2);
             char* block33 = (char*) vm_map(filename1, 3);
+            vm_yield();
             char* block44 = (char*) vm_map(filename1, 4);
             cout << *block11 << *block22 << *block33 << *block44 << endl;
             block44 = (char*) vm_map(filename1, 5);
+            vm_yield();
         }else{
             char* block5 = (char*) vm_map(filename1, 5);
             cout<< "read to mem: "<< *block1 << endl;
             *block1 = '1';
+            vm_yield();
             cout<< "read to mem 2: "<< *block2 << endl;
             *block3 = '3';
             cout<< "read to mem 4: "<< *block4 << endl;
@@ -43,6 +47,7 @@ int main(){
             *filename1 = 'w';
             cout << *filename1 << endl;
             cout << *block5 << endl;
+            vm_yield();
         }
     }
     return 0;

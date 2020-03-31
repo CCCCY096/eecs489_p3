@@ -92,6 +92,12 @@ void vm_init(unsigned int memory_pages, unsigned int swap_blocks)
 
 int vm_create(pid_t parent_pid, pid_t child_pid)
 {
+    // Eager check
+    if (arenas.find(parent_pid) != arenas.end())
+    {
+        if (arenas[parent_pid]->sb_used > avail_swap_blocks) return -1;
+    }
+
     //     // Eager swap reservation check
     //     // Leave it for now
     // 4 credits version: assume child process has a empty arena
@@ -119,8 +125,7 @@ int vm_create(pid_t parent_pid, pid_t child_pid)
         return 0;
     }
     
-    // Eager check
-    if (arenas[parent_pid]->sb_used > avail_swap_blocks) return -1;
+
 
     // For all vp in parent process, make a copy (almost)
     page_table_t *parent_table = arenas[parent_pid]->process_page_table;
@@ -376,7 +381,7 @@ unsigned int bringto_mem_handler(string& filename, unsigned int block, bool issw
             clock_queue.push_back(tmp);
         }
         // Write the content of evicted page into disk
-        if (orphans.find(get<0>(id)) != orphans.end() && orphans[get<0>(id)].find(get<1>(id)) != orphans[get<0>(id)].end() ) {
+        if (!get<2>(id) && orphans.find(get<0>(id)) != orphans.end() && orphans[get<0>(id)].find(get<1>(id)) != orphans[get<0>(id)].end() ) {
             if (orphans[get<0>(id)][get<1>(id)].dirty)
             {
                 // Write back
@@ -543,7 +548,7 @@ int write_handler(uintptr_t index)
     page_table_entry_t *entry = &(arenas[curr_pid]->process_page_table->ptes[index]);
     extra_info *extra = &(arenas[curr_pid]->pt_extension[index]);
     // cout << " index of read in writer_handler is : " << index << endl;
-    if ( extra->isswap && (swap_inversion[extra->block].size() > 1 || entry->ppage == 0))
+    if ( extra->isswap && (entry->ppage == 0 || swap_inversion[extra->block].size() > 1))
     {
         // cout << "Start copy on write" << endl;
         unsigned int old_block = extra->block;
@@ -597,7 +602,7 @@ int write_handler(uintptr_t index)
     //cout << "Start" << endl;
     if(extra->isswap)
     {
-        assert(swap_inversion[extra->block] == 1);
+        assert(swap_inversion[extra->block].size() == 1);
         for (auto& page: swap_inversion[extra->block])
         {
             page.second->valid = 1;

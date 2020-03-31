@@ -10,9 +10,12 @@ int main()
     int pid1 = fork();
     if (pid1)
     {
+        vm_yield();
         int pid2 = fork();
+        vm_yield();
         if (pid2)
         {
+            vm_yield();
             int pid3 = fork();
             if (pid3)
             {
@@ -22,6 +25,7 @@ int main()
                 char *vp3 = (char *) vm_map(nullptr, 0);
                 char *vp4 = (char *) vm_map(nullptr, 0);
                 char *vp5 = (char *) vm_map(nullptr, 0);
+                vm_yield();
                 *vp0 = 'c'; 
                 *vp1 = 'c';
                 *vp2 = 'c';
@@ -37,7 +41,10 @@ int main()
                 cout << *vp1 << endl; // now vp1 is changed to state 5. Everyone except vp1 has referenced bit of 0 
                 *vp2 = 'c'; // now vp2 is changed from state3 to state 2
                 *vp0 = 'c'; // vp0 is changed from state 6 to 2. vp3 is evicted. vp2's ref bit is 0.
+            vm_yield();
             }
+        vm_yield();
         }
+    vm_yield();
     }
 }

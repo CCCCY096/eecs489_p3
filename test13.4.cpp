@@ -19,20 +19,24 @@ int main(){
         int pid1 = fork();
         if (pid)
         {
+            vm_yield();
             // Parent. Now shared with child1 and child2
             cout << *swap0 << endl; // swap0 is made resident
             *swap3 = 'a'; // swap5 is made resident
             *swap4 = 'a'; // swap6 is made resident
             char *myswap = (char*) vm_map(nullptr, 0); 
+            vm_yield();
             strcpy(myswap, "shakespeare.txt"); // swap7 made resident
             cout << *swap0 << endl; // swap0 is made resident
+            vm_yield();
         }
         else
         {
             // Child2. Now shared with child1
             cout << *swap0 << endl; // there should be no fault
             char *myswap = (char*) vm_map(nullptr, 0); 
-            strcpy(myswap, "shakespeare.txt"); // swap8 made resident. There should be no evictoin       
+            strcpy(myswap, "shakespeare.txt"); // swap8 made resident. There should be no evictoin 
+            vm_yield();      
         }     
     }else{
         int pid2 = fork();
@@ -42,8 +46,9 @@ int main(){
             strcpy(myswap, "shakespeare.txt"); // swap9 made resident. There should be no evictoin        
             cout << *swap0 << endl; // there should be not fualt
             *swap0 = 1; // there should be copy on write
+            vm_yield();
         }else{
-            
+            vm_yield();
         }
     }
     return 0;
