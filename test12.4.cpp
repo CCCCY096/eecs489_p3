@@ -14,10 +14,8 @@ int main(){
     int pid = fork();
     if(!pid){
         int pid2 = fork();
-        vm_yield();
         if(!pid2){
             cout << *filename1 << endl;
-            vm_yield();
         }else{
             cout << *filename1 << endl;
             cout << "dsfsd" << endl;
@@ -30,11 +28,9 @@ int main(){
             // strcpy(filename2, "shakespeare.txt");
             // filename2 = (char*) vm_map(nullptr, 0);
             // strcpy(filename2, "shakespeare.txt");
-            vm_yield();
         }
     }else{
         *filename1 = '9';
-        vm_yield();
     }
     return 0;
 }
